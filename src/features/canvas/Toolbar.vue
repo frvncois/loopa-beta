@@ -59,7 +59,7 @@ async function onVideoFiles(e: Event): Promise<void> {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-0.5 py-1.5 px-1 bg-bg-2 border-r border-border flex-shrink-0">
+  <div class="flex flex-row items-center gap-0.5 px-1.5">
     <IconButton
       v-for="t in TOOLS"
       :key="t.id"
@@ -72,7 +72,7 @@ async function onVideoFiles(e: Event): Promise<void> {
       <component :is="t.icon" />
     </IconButton>
 
-    <div class="w-full h-px bg-border my-0.5" />
+    <div class="h-4 w-px bg-border mx-0.5" />
 
     <IconButton size="sm" variant="ghost" title="Add Image" @click="imageInputRef?.click()">
       <IconImage />

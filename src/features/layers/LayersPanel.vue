@@ -31,11 +31,6 @@ function topLevelElements(frameId: string) {
   return doc.topLevelElementsForFrame(frameId)
 }
 
-function onAddFrame(): void {
-  const id = doc.addFrame()
-  activateFrame(id)
-}
-
 function onSelect(id: string, multi: boolean): void {
   if (multi) selection.toggleSelection(id)
   else selection.select(id)
@@ -82,22 +77,6 @@ function onReleaseMask(): void {
 
 <template>
   <div class="flex-1 flex flex-col min-h-0 overflow-y-auto" @click="closeCtxMenu">
-    <!-- Add frame button row -->
-    <div class="flex items-center justify-between px-3 h-[30px] border-b border-border flex-shrink-0">
-      <span class="text-[10px] font-semibold text-text-4 uppercase tracking-wider">Layers</span>
-      <button
-        type="button"
-        class="flex items-center gap-1 text-xs text-text-3 hover:text-text-1 transition-colors duration-[140ms]"
-        title="Add Frame"
-        @click="onAddFrame"
-      >
-        <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-          <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-        </svg>
-        <span>Add Frame</span>
-      </button>
-    </div>
-
     <!-- One section per frame -->
     <template v-for="frame in frames" :key="frame.id">
       <FrameRow

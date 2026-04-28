@@ -62,9 +62,6 @@ export function useAnimatedProperty<T = unknown>(
   value: WritableComputedRef<T>
   hasTrack: ComputedRef<boolean>
   hasKeyframeAtCurrentFrame: ComputedRef<boolean>
-  toggleTrack(): void
-  addKeyframeHere(): void
-  deleteKeyframeHere(): void
 } {
   const doc = useDocumentStore()
   const timeline = useTimelineStore()
@@ -127,51 +124,5 @@ export function useAnimatedProperty<T = unknown>(
     }
   })
 
-  // ── Track actions ────────────────────────────────────────────────────────────
-
-  function toggleTrack(): void {
-    const track = doc.trackForProperty(elementId.value, property.value)
-    history.transact(track ? 'Remove track' : 'Add track', () => {
-      if (track) {
-        for (const kf of [...track.keyframes]) {
-          doc.deleteKeyframe(track.id, kf.id)
-        }
-      } else {
-        const currentValue = animated.value
-          ? (getValueAtPath(animated.value, property.value) as KeyframeValue)
-          : (0 as KeyframeValue)
-        doc.upsertKeyframe(
-          elementId.value,
-          property.value,
-          Math.round(timeline.currentFrame),
-          currentValue,
-        )
-      }
-    })
-  }
-
-  function addKeyframeHere(): void {
-    if (!animated.value) return
-    const currentValue = getValueAtPath(animated.value, property.value) as KeyframeValue
-    history.transact('Add keyframe', () => {
-      doc.upsertKeyframe(
-        elementId.value,
-        property.value,
-        Math.round(timeline.currentFrame),
-        currentValue,
-      )
-    })
-  }
-
-  function deleteKeyframeHere(): void {
-    const track = doc.trackForProperty(elementId.value, property.value)
-    if (!track) return
-    const kf = track.keyframes.find((k) => k.frame === Math.round(timeline.currentFrame))
-    if (!kf) return
-    history.transact('Delete keyframe', () => {
-      doc.deleteKeyframe(track.id, kf.id)
-    })
-  }
-
-  return { value, hasTrack, hasKeyframeAtCurrentFrame, toggleTrack, addKeyframeHere, deleteKeyframeHere }
+  return { value, hasTrack, hasKeyframeAtCurrentFrame }
 }

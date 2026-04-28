@@ -24,7 +24,7 @@ function toggle() {
 </script>
 
 <template>
-  <div class="inspector-section">
+  <div class="px-3 py-2.5 border-b border-border">
     <!-- Clickable title row -->
     <button
       type="button"

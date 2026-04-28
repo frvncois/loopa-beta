@@ -41,7 +41,7 @@ const playheadX = computed(() => LABEL_WIDTH + timeline.currentFrame * PPF)
       <svg
         :width="svgWidth"
         :height="svgHeight"
-        style="display: block"
+        style="display: block; min-width: 100%"
       >
         <TimelineRuler
           :total-frames="timeline.totalFrames"

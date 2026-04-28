@@ -1,0 +1,7 @@
+/* Landing-only palette extensions — imported only by LandingView and its children */
+:root {
+  --gradient-aurora: linear-gradient(135deg, #4353ff 0%, #b14bff 50%, #ff5b9e 100%);
+  --gradient-sunset: linear-gradient(135deg, #ff7e3d 0%, #ff5b9e 100%);
+  --gradient-ocean:  linear-gradient(135deg, #0fc5e9 0%, #4353ff 100%);
+  --grid-line: rgb(255 255 255 / 0.04);
+}

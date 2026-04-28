@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { useHistoryStore } from '@/stores/useHistoryStore'
-import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useAutosave } from '@/composables/useAutosave'
 import { useEditorModals } from '@/composables/useEditorModals'
 import IconButton from '@/ui/IconButton.vue'
 import Divider from '@/ui/Divider.vue'
-import { IconUndo, IconRedo, IconPlay, IconPause, IconStop, IconSettings } from '@/ui/icons'
+import { IconUndo, IconRedo, IconSettings } from '@/ui/icons'
 
 const history  = useHistoryStore()
-const timeline = useTimelineStore()
 const doc      = useDocumentStore()
 const autosave = useAutosave()
 const modals   = useEditorModals()
@@ -62,22 +60,6 @@ const modals   = useEditorModals()
       >
         <IconRedo />
       </IconButton>
-
-      <Divider :vertical="true" />
-
-      <IconButton variant="ghost" size="sm" title="Stop" @click="timeline.stop()">
-        <IconStop />
-      </IconButton>
-      <IconButton variant="ghost" size="sm" title="Play / Pause" @click="timeline.toggle()">
-        <IconPause v-if="timeline.isPlaying" />
-        <IconPlay v-else />
-      </IconButton>
-
-      <Divider :vertical="true" />
-
-      <span class="text-xs font-mono text-text-3 tabular-nums w-[4.5rem] text-right select-none pr-1">
-        {{ timeline.currentTime }}
-      </span>
 
       <Divider :vertical="true" />
 

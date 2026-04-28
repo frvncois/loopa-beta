@@ -97,8 +97,7 @@
 /* ------------------------------------------------------------------------
    Reset / base
    ------------------------------------------------------------------------ */
-*, *::before, *::after { box-sizing: border-box; }
-* { margin: 0; padding: 0; }
+
 
 html, body {
   height: 100%;
@@ -155,32 +154,3 @@ a { color: inherit; text-decoration: none; }
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-text-4); }
-
-/* ------------------------------------------------------------------------
-   The 4–5 utility classes that genuinely earn @apply
-   (Used in 10+ places — extracting them here is cheaper than primitives.)
-   ------------------------------------------------------------------------ */
-
-/* Standard inspector field surface — used by NumberField / TextField / Select.
-   Prefer the primitive components in @/ui/. This @apply exists so the
-   primitives stay short. */
-@utility field-surface {
-  @apply h-input bg-bg-3 border border-border rounded-sm px-[7px]
-         font-mono text-xs text-text-1 outline-none transition-colors
-         focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed;
-}
-
-/* Standard inspector label */
-@utility inspector-label {
-  @apply w-label min-w-label text-xs text-text-3 font-medium truncate select-none;
-}
-
-/* Standard inspector row */
-@utility inspector-row {
-  @apply flex items-center gap-1.5 min-h-input mb-1.5 last:mb-0;
-}
-
-/* Standard inspector section wrapper */
-@utility inspector-section {
-  @apply px-3 py-2.5 border-b border-border;
-}

@@ -16,11 +16,20 @@ import { useMotionPathConfirm } from '@/composables/useMotionPathConfirm'
 import { useShortcuts } from '@/composables/useShortcuts'
 import { useAutosave } from '@/composables/useAutosave'
 import { useEditorModals } from '@/composables/useEditorModals'
+import { useDocumentStore } from '@/stores/useDocumentStore'
+import { useFrameActivation } from '@/composables/useFrameActivation'
 
 const confirm  = useMotionPathConfirm()
 const shortcuts = useShortcuts()
 const autosave  = useAutosave()
 const modals    = useEditorModals()
+const doc       = useDocumentStore()
+const { activateFrame } = useFrameActivation()
+
+function onAddFrame(): void {
+  const id = doc.addFrame()
+  activateFrame(id)
+}
 
 onMounted(() => {
   shortcuts.register()
@@ -46,7 +55,21 @@ onBeforeUnmount(() => shortcuts.unregister())
         class="bg-bg-2 border-r border-border"
       >
         <div class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden h-full">
-          <PanelHeader title="Layers" />
+          <PanelHeader title="Layers">
+            <template #actions>
+              <button
+                type="button"
+                class="flex items-center gap-1 text-xs text-text-3 hover:text-text-1 transition-colors duration-[140ms]"
+                title="Add Frame"
+                @click="onAddFrame"
+              >
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+                <span>Add Frame</span>
+              </button>
+            </template>
+          </PanelHeader>
           <LayersPanel />
         </div>
       </ResizablePanel>
@@ -54,10 +77,11 @@ onBeforeUnmount(() => shortcuts.unregister())
       <!-- ── Center column: toolbar + canvas + timeline ─────────────── -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
 
-        <div class="flex flex-1 min-h-0 min-w-0">
+        <div class="flex items-center justify-center h-[34px] min-h-[34px] border-b border-border flex-shrink-0">
           <Toolbar />
-          <EditorCanvas />
         </div>
+
+        <EditorCanvas />
 
         <ResizablePanel
           side="bottom"
@@ -68,7 +92,6 @@ onBeforeUnmount(() => shortcuts.unregister())
           class="bg-bg-2 border-t border-border"
         >
           <div class="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
-            <PanelHeader title="Timeline" />
             <TimelinePanel />
           </div>
         </ResizablePanel>
