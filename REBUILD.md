@@ -104,11 +104,12 @@ src/
 │   ├── element.ts                       # Element, BaseElement, all variants, FillEntry, StrokeEntry, ShadowEntry
 │   ├── track.ts                         # Track, Keyframe, EasingType, PropertyPath
 │   ├── frame.ts                         # Frame
-│   ├── component.ts                     # ComponentDef
 │   ├── motion-path.ts                   # MotionPath
 │   ├── tool.ts                          # ToolType, ToolDefinition
 │   ├── project.ts                       # ProjectMeta, ProjectData
+│   ├── export.ts                        # ExportFormat, ExportJob, RenderedFrame, MediaLayer, PreflightReport, ...
 │   ├── geometry.ts                      # Bounds, Point, Rect
+│   ├── shims/gifenc.d.ts                # Hand-written type shim for gifenc
 │   └── index.ts                         # barrel
 │
 ├── core/                                # ZERO Vue imports
@@ -116,16 +117,20 @@ src/
 │   │   ├── easing.ts                    # all easing functions + getEasingFn()
 │   │   ├── interpolate.ts               # number, color, path, generic
 │   │   ├── tracks.ts                    # computeTrackValueAt(track, frame)
-│   │   └── engine.ts                    # computeElementAt(element, tracks, frame)
+│   │   ├── engine.ts                    # computeElementAt(element, tracks, frame)
+│   │   ├── propertyGroups.ts            # getPropertyGroup(property) → timeline grouping
+│   │   └── snapshotProperties.ts        # getSnapshotProperties(el) → animatable property list
 │   ├── elements/
 │   │   ├── factory.ts                   # createDefaultElement(type)
-│   │   ├── bounds.ts                    # getBounds(el), getMultiBounds([])
-│   │   └── transforms.ts                # rotate/scale math helpers
+│   │   └── bounds.ts                    # getBounds(el), getMultiBounds([])
 │   ├── path/
-│   │   ├── parser.ts                    # SVG d → PathPoint[]
 │   │   ├── builder.ts                   # PathPoint[] → SVG d
-│   │   ├── hitTest.ts                   # point-on-path detection
 │   │   └── motionPathMath.ts            # point at progress along path
+│   ├── export/
+│   │   ├── imageData.ts                 # gatherImageData(), blobToDataUri() — shared by useExport + useThumbnail
+│   │   ├── lottie/                      # buildLottie(), preflightLottie(), per-element mappers, easing translation
+│   │   ├── render/                      # renderProjectAtFrame(), svgBuilder.ts
+│   │   └── raster/                      # composeFrame, renderJob, png, gif, video (mp4+webm)
 │   ├── persistence/
 │   │   ├── ProjectRepository.ts         # interface
 │   │   ├── LocalProjectRepo.ts          # localStorage impl
@@ -277,17 +282,23 @@ src/
 │   │   └── composables/useTimelineDrag.ts
 │   │
 │   ├── frames/
-│   │   ├── FrameThumbnails.vue           # optional thumbnail strip
 │   │   └── composables/useFrames.ts
 │   │
-│   ├── components-system/
-│   │   └── composables/useComponents.ts
-│   │
 │   ├── masks/
-│   │   └── composables/useMasks.ts
+│   │   └── (mask logic lives in documentMaskActions.ts + GroupElement.vue)
 │   │
-│   └── motion-paths/
-│       └── composables/useMotionPathEdit.ts
+│   ├── motion-paths/
+│   │   └── MotionPathOverlay.vue
+│   │
+│   ├── export/
+│   │   ├── ExportModal.vue
+│   │   ├── ExportFormatPicker.vue
+│   │   ├── ExportPreflight.vue
+│   │   ├── ExportProgress.vue
+│   │   └── options/  LottieOptions, PngOptions, GifOptions, Mp4Options, WebmOptions
+│   │
+│   └── landing/
+│       └── (marketing landing page — LandingView route at '/')
 │
 ├── layout/
 │   ├── EditorShell.vue                   # CSS grid: topbar / left / center / right / bottom
@@ -296,7 +307,7 @@ src/
 ├── views/
 │   └── EditorView.vue                    # the only view in v2
 │
-└── router/index.ts                       # single route '/' → EditorView
+└── router/index.ts                       # '/' → LandingView, '/app' → EditorView
 ```
 
 ---
@@ -368,10 +379,6 @@ export interface BaseElement {
   flipY: boolean
   transformOrigin: { x: number; y: number }   // 0..1 normalized, default {0.5, 0.5}
   cropRect?: { x: number; y: number; width: number; height: number } | null
-  componentId?: string
-  componentInstanceId?: string
-  shareStyle?: boolean
-  shareAnimation?: boolean
 }
 
 export interface RectElement extends BaseElement {
@@ -428,6 +435,7 @@ export interface PathElement extends BaseElement {
   closed: boolean
   d: string
   fillRule: 'nonzero' | 'evenodd'
+  isMotionPath?: boolean           // true for guide paths created by the motion-path tool; excluded from layers panel
 }
 
 export interface GroupElement extends BaseElement {
@@ -536,7 +544,6 @@ export interface Frame {
 import type { Element } from './element'
 import type { Track } from './track'
 import type { Frame } from './frame'
-import type { ComponentDef } from './component'
 import type { MotionPath } from './motion-path'
 
 export interface ProjectMeta {
@@ -552,22 +559,14 @@ export interface ProjectData {
   frames: Frame[]
   elements: Element[]             // ALL elements, flat
   tracks: Track[]                 // ALL tracks, flat
-  components: ComponentDef[]
   motionPaths: MotionPath[]
-  schemaVersion: number           // bump when shape changes
+  schemaVersion: number           // bump when shape changes — currently 3
 }
 ```
 
-### `types/component.ts`, `types/motion-path.ts`, `types/tool.ts`
+### `types/motion-path.ts`, `types/tool.ts`
 
 ```ts
-// component.ts
-export interface ComponentDef {
-  id: string
-  name: string
-  masterElementIds: string[]
-}
-
 // motion-path.ts
 import type { PathPoint } from './element'
 export interface MotionPath {
@@ -725,7 +724,6 @@ export interface ProjectRepository {
   load(id: string): Promise<ProjectData | null>
   save(id: string, data: ProjectData): Promise<void>
   delete(id: string): Promise<void>
-  exists(id: string): Promise<boolean>
 }
 ```
 
@@ -742,7 +740,6 @@ Implements `ProjectRepository` against localStorage.
 export interface MediaRepository {
   put(id: string, blob: Blob): Promise<void>
   get(id: string): Promise<Blob | null>
-  delete(id: string): Promise<void>
   deleteMany(ids: string[]): Promise<void>
 }
 ```
@@ -1239,13 +1236,12 @@ export interface ToolController {
 ### `tools/_base/toolRegistry.ts`
 
 ```ts
-const tools = new Map<ToolType, ToolController>()
-export function registerTool(t: ToolController): void
-export function getTool(id: ToolType): ToolController | undefined
-export function listTools(): ToolController[]
+const registry = new Map<ToolType, ToolController>()
+export function registerTool(id: ToolType, controller: ToolController): void
+export function getToolController(id: ToolType): ToolController | undefined
 ```
 
-Each tool file calls `registerTool(...)` at module load. Import all tools once in `main.ts` (or in a barrel) to ensure registration.
+Each tool file calls `registerTool(id, controller)` at module load. `src/tools/index.ts` imports all tools for their side effects; that file is imported once in `main.ts`.
 
 ### `tools/_base/ToolDispatcher.ts`
 
@@ -1537,11 +1533,11 @@ That's a full inspector section — 17 lines of script + template. Visual fideli
 
 Each phase is a complete, runnable increment. Don't move on until "done when" is met.
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅
 
 **Tasks**
 - `pnpm create vite@latest loopa-v2 --template vue-ts`
-- Install: `pinia vue-router @vueuse/core` and dev `tailwindcss@next @tailwindcss/vite eslint prettier @typescript-eslint/parser @typescript-eslint/eslint-plugin`
+- Install: `pinia vue-router` and dev `tailwindcss@next @tailwindcss/vite eslint prettier @typescript-eslint/parser @typescript-eslint/eslint-plugin`
 - Create `src/assets/styles/main.css` (use the provided `main.css`)
 - Wire Tailwind v4 in `vite.config.ts` via `@tailwindcss/vite` plugin
 - Configure `tsconfig.app.json` with `paths: { "@/*": ["src/*"] }` and strict mode
@@ -1551,19 +1547,19 @@ Each phase is a complete, runnable increment. Don't move on until "done when" is
 
 **Done when**: dev server runs, Tailwind classes like `bg-bg-2 text-text-1 font-sans` resolve to your tokens.
 
-### Phase 2 — Types and core domain
+### Phase 2 — Types and core domain ✅
 
 **Tasks**
 - Create all files in `src/types/`
 - Create all files in `src/core/utils/` (id, math, color, valueAtPath, cn, deepClone)
 - Create `src/core/animation/` (easing.ts: port v1, interpolate.ts, tracks.ts, engine.ts)
 - Create `src/core/elements/factory.ts` and `bounds.ts`
-- Create `src/core/path/*` (port from v1)
+- Create `src/core/path/builder.ts` and `motionPathMath.ts`
 - Create `src/core/persistence/ProjectRepository.ts` interface, `LocalProjectRepo.ts` impl, `MediaRepository.ts` interface, `IDBMediaRepo.ts` impl
 
 **Done when**: `pnpm build` succeeds. No imports of Vue inside `core/` (verify via grep).
 
-### Phase 3 — Stores
+### Phase 3 — Stores ✅
 
 **Tasks**
 - Create all 7 Pinia stores per the contracts in §5
@@ -1581,7 +1577,7 @@ history.undo()    // element disappears
 history.redo()    // element returns
 ```
 
-### Phase 4 — UI primitives
+### Phase 4 — UI primitives ✅
 
 **Tasks**
 - Build every component in `src/ui/` per §7
@@ -1592,7 +1588,9 @@ history.redo()    // element returns
 
 **Done when**: `/_dev` looks identical to the equivalent surfaces in the v1 prototype. Any pixel-level deviation gets fixed before moving on.
 
-### Phase 5 — Editor shell
+> **Note (post-ship)**: Several UI primitives were removed as dead code after phases completed. No longer in `src/ui/`: `TextField.vue`, `Slider.vue`, `Checkbox.vue`, `Tooltip.vue`, `Popover.vue`, `ConfirmDialog.vue`, `EmptyState.vue`. Removed from `src/ui/inspector/`: `Section.vue` (replaced by `CollapsibleSection.vue` used everywhere), `PairedField.vue`. Do not re-create these unless they are actually needed.
+
+### Phase 5 — Editor shell ✅
 
 **Tasks**
 - `EditorTopbar.vue`: project name, undo/redo, play, save state. Pure presentational, wires to stores.
@@ -1606,7 +1604,7 @@ history.redo()    // element returns
 
 **Done when**: app looks like Loopa with empty regions, panels resize, layout is pixel-accurate.
 
-### Phase 6 — Canvas + basic tools
+### Phase 6 — Canvas + basic tools ✅
 
 **Tasks**
 - `useCanvasViewport.ts`: pan, zoom, screenToSvg, fitToView
@@ -1621,7 +1619,7 @@ history.redo()    // element returns
 
 **Done when**: you can switch tools from the toolbar (or via shortcut), draw rectangles/ellipses/text on a single hardcoded frame, select them, drag them, resize them, rotate them, undo/redo all of it.
 
-### Phase 7 — Layers + Properties (static, no animation)
+### Phase 7 — Layers + Properties (static, no animation) ✅
 
 **Tasks**
 - `LayersPanel.vue` with `FrameRow`, `ElementRow`, `GroupRow`. Single hardcoded frame is fine for now.
@@ -1633,7 +1631,7 @@ history.redo()    // element returns
 
 **Done when**: full edit loop works — select element, change fill color, undo/redo, see layer panel update in sync.
 
-### Phase 8 — Timeline + animation
+### Phase 8 — Timeline + animation ✅
 
 **Tasks**
 - `TimelinePanel.vue` with controls, ruler, playhead, track list
@@ -1648,7 +1646,7 @@ history.redo()    // element returns
 
 ---
 
-### Phase 9 — Frames system
+### Phase 9 — Frames system ✅
 
 **Tasks**
 - Multiple frames on infinite canvas, positioned at `frame.canvasX/Y`
@@ -1659,7 +1657,7 @@ history.redo()    // element returns
 
 **Done when**: you can create multiple frames, switch between them, each with its own animation playback.
 
-### Phase 10 — Pen tool + path editing
+### Phase 10 — Pen tool + path editing ✅
 
 **Tasks**
 - `tools/pen/PenTool.ts` with multi-click path creation, ESC/Enter to commit
@@ -1679,7 +1677,7 @@ history.redo()    // element returns
 > componentInstanceId, shareStyle, shareAnimation) have been removed from BaseElement.
 > schemaVersion bumped to 3 on removal.
 
-### Phase 12 — Masks
+### Phase 12 — Masks ✅
 
 **Tasks**
 - "Use as Mask" context menu item on multi-selection: groups them, sets `hasMask: true`, first child becomes the mask shape
@@ -1689,7 +1687,7 @@ history.redo()    // element returns
 
 **Done when**: select an ellipse + image, "Use as Mask," image is clipped to the ellipse shape.
 
-### Phase 13 — Motion paths
+### Phase 13 — Motion paths ✅
 
 **Tasks**
 - `tools/motion-path/MotionPathTool.ts`: click an element first, then draw the path
@@ -1700,7 +1698,7 @@ history.redo()    // element returns
 
 **Done when**: animate a circle along a curved bezier path with rotation following the tangent.
 
-### Phase 14 — Image + Video elements
+### Phase 14 — Image + Video elements ✅
 
 **Tasks**
 - "Add Image" and "Add Video" modals: file picker, drag-and-drop. Save blob via `IDBMediaRepo.put`.
@@ -1711,7 +1709,7 @@ history.redo()    // element returns
 
 **Done when**: drag an image into the canvas, it appears, can be transformed, animated, and deleting it cleans up its IndexedDB entry.
 
-### Phase 15 — Polish
+### Phase 15 — Polish ✅
 
 **Tasks**
 - `useShortcuts.ts` global keymap (port from v1, simplified):
@@ -1724,6 +1722,19 @@ history.redo()    // element returns
 - Visual QA pass: every screen compared to v1 prototype
 
 **Done when**: the editor feels finished. No console warnings. No `as any` in the codebase. No file over 400 lines.
+
+### Phase 16 — Export system ✅ (out-of-plan)
+
+> Implemented after Phase 15 as a block. See `EXPORT.md` for the full specification and phase-by-phase breakdown (E1–E5).
+
+All five export sub-phases shipped together:
+- **E1**: Export modal shell, job state machine (`useExportStore`), preflight UI
+- **E2**: Lottie exporter (`core/export/lottie/`) with easing baking, motion path baking, mask support
+- **E3**: SVG render primitive (`core/export/render/`) + `useThumbnail` composable
+- **E4**: Raster pipeline in a Web Worker — PNG sequence (fflate) + GIF (gifenc, not gif.js)
+- **E5**: WebCodecs video encoding — MP4 (H.264 via mp4-muxer) + WebM (VP9 via webm-muxer)
+
+Additional work outside spec: `OffscreenCanvas.transferToImageBitmap()` was found to throw `InvalidStateError` in some Chrome versions; `composeFrame.ts` was rewritten to use `createImageBitmap` directly.
 
 ---
 

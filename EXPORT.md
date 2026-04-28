@@ -54,40 +54,50 @@ Export logic respects the existing layer rule: `views ← features ← (ui, tool
 ```
 src/
 ├── types/
-│   └── export.ts                      # Pure types — ExportFormat, PreflightReport, etc.
+│   ├── export.ts                      # ExportFormat, ExportJob, RenderedFrame, MediaLayer, PreflightReport, ...
+│   └── shims/gifenc.d.ts              # Hand-written type shim for gifenc
 │
 ├── core/
 │   └── export/
-│       ├── preflight.ts               # Aggregates per-format preflight calls
+│       ├── imageData.ts               # gatherImageData(), blobToDataUri() — shared utility
 │       ├── lottie/                    # Phase E2
 │       │   ├── index.ts               # Public: buildLottie(), preflightLottie()
 │       │   ├── buildLottie.ts
 │       │   ├── easing.ts              # Loopa easing → Lottie bezier
+│       │   ├── types.ts               # Internal Lottie type definitions
 │       │   ├── elements/              # One mapper per ElementType
 │       │   │   ├── rect.ts
 │       │   │   ├── ellipse.ts
+│       │   │   ├── line.ts
+│       │   │   ├── polygon.ts
+│       │   │   ├── star.ts
 │       │   │   ├── path.ts
 │       │   │   ├── text.ts
-│       │   │   └── ...
+│       │   │   ├── group.ts
+│       │   │   ├── image.ts
+│       │   │   └── shared.ts          # Common transform/fill/stroke helpers
 │       │   ├── tracks.ts              # Track → Lottie animatable property
 │       │   └── preflight.ts
 │       ├── render/                    # Phase E3
 │       │   ├── renderProjectAtFrame.ts
-│       │   ├── svgBuilder.ts          # Pure SVG-string builder per element type
-│       │   └── types.ts               # RenderedFrame, MediaLayer
+│       │   └── svgBuilder.ts          # Pure SVG-string builder per element type
 │       └── raster/                    # Phase E4 + E5
-│           ├── composeFrame.ts        # SVG-string + media → ImageBitmap on OffscreenCanvas
-│           ├── renderJob.ts           # Async iterable: yields ImageBitmap per frame
-│           ├── png.ts
-│           ├── gif.ts                 # Phase E4
-│           ├── mp4.ts                 # Phase E5
-│           └── webm.ts                # Phase E5
+│           ├── composeFrame.ts        # SVG → ImageBitmap via createImageBitmap (no OffscreenCanvas)
+│           ├── renderJob.ts           # Async generator: yields ImageBitmap per frame
+│           ├── png.ts                 # buildPngSequence → ZIP via fflate
+│           ├── gif.ts                 # buildGif → GIF via gifenc
+│           └── video.ts               # buildMp4 + buildWebm via WebCodecs + mp4-muxer/webm-muxer
 │
 ├── stores/
 │   └── useExportStore.ts              # Job state machine (idle → preflighting → exporting → done | error)
 │
 ├── composables/
-│   └── useExport.ts                   # Orchestration: load media blobs, call preflight, run job, handle download
+│   ├── useExport.ts                   # Orchestration: load media blobs, call preflight, run job, handle download
+│   ├── useExportWorker.ts             # Worker lifecycle wrapper: runRasterExport() → Promise<Blob>
+│   └── useThumbnail.ts                # generateThumbnail(frameId) → data URI
+│
+├── workers/
+│   └── exportWorker.ts                # Receives WorkerInput, posts WorkerOutput messages
 │
 └── features/
     └── export/
@@ -306,61 +316,60 @@ Bar: 6px tall, `bg-bg-3` track, `bg-accent` fill. Frame counter in `font-mono te
 ---
 
 <a name="phase-e1"></a>
-## Phase E1 — Export shell + preflight system
+## Phase E1 — Export shell + preflight system ✅
 
 **Goal**: Click Export → modal opens → pick a format → see (empty) preflight → click Export → see a working progress bar that does nothing real → success screen with a stub download. No actual export logic. This phase exists so the next four phases just plug into a working pipeline.
 
-### Tasks
+### Completed
 
-- Add `src/types/export.ts` with all definitions from §3.
-- Add `useExportStore`:
+- Added `src/types/export.ts` with all definitions from §3.
+- Added `useExportStore`:
   - State: `currentJob: ExportJob | null`
   - Actions: `startJob(format, options, frameId)`, `setPreflight(report)`, `setStatus(status)`, `setProgress(currentFrame, totalFrames)`, `setResult(blob, fileName)`, `setError(msg)`, `cancel()`, `reset()`
   - This store does NOT actually run exports — it tracks state. The `useExport` composable orchestrates.
-- Add `composables/useExport.ts`:
-  - Returns `{ job, openExport, runExport, downloadResult, cancelExport }`
-  - `openExport(frameId)` adds a job in `idle` status
-  - `runExport()` runs preflight (calling per-format preflight functions — stub all to empty for now), waits for user confirm, then runs the export (stub: 1.5s timeout that fakes progress, returns a `new Blob(['stub'], { type: 'text/plain' })`)
+- Added `composables/useExport.ts`:
+  - Returns `{ job, openExport, changeFormat, changeOptions, changeFrame, runExport, downloadResult, cancelExport, closeExport }`
+  - `openExport()` defaults to `selection.activeFrameId`; wires directly to real export logic (stub phase was skipped — E1–E5 shipped together)
   - `downloadResult()` uses standard `URL.createObjectURL` + anchor click pattern
-- Add `_showExport` to `useEditorModals.ts` and expose as `showExport`.
-- Add Export button to `EditorTopbar.vue` (right side, before Settings).
-- Build all `features/export/*` components per §4.
-- Wire up the modal in `EditorShell.vue` alongside the existing modals.
+- Added `_showExport` to `useEditorModals.ts`, exposed as `showExport`.
+- Added Export button to `EditorTopbar.vue` (right side, before Settings).
+- Built all `features/export/*` components per §4.
+- Wired up the modal in `EditorShell.vue`.
 
 ### Format picker behavior
 
-When user changes format, immediately call that format's `preflight()` (stub returns empty for now) and update the job's preflight. Don't make them click a button to see issues — surface them live.
+When user changes format, immediately calls that format's `preflight()` and updates the job's preflight. Issues surface live without requiring an extra button click.
 
 ### Frame selection
 
-For now, default to `selection.activeFrameId`. If the project has multiple frames, show a small `Select` above the format picker labeled "Frame". Otherwise hide it.
+Defaults to `selection.activeFrameId`. If the project has multiple frames, shows a `Select` above the format picker labeled "Frame". Hidden when the project has only one frame.
 
-### Done when
+### Done when ✅
 
 - Click Export in topbar → modal opens with format picker showing all 5 formats.
 - Selecting a format shows the corresponding options panel.
 - Preflight section renders the empty state ("No issues. Ready to export.").
-- Click "Export" → progress bar animates over 1.5 seconds with fake "frame N of M" counter.
-- Success screen shows, "Download" button downloads a 4-byte text file.
-- Cancel mid-progress returns to format picker without artifacts.
+- Success screen shows filename + file size; "Download" button triggers download.
+- Cancel mid-export returns to format picker without artifacts.
 - No `as any`. Every file under 200 lines.
 
 ---
 
 <a name="phase-e2"></a>
-## Phase E2 — Lottie exporter
+## Phase E2 — Lottie exporter ✅
 
 **Goal**: A working `.json` Lottie export for the common cases (transform, opacity, fills, strokes, simple paths, text) with explicit warnings for what gets baked or dropped. Validates against `lottie-web` playback.
 
-### Tasks
+### Completed
 
-- Add `core/export/lottie/index.ts` exposing `buildLottie(input)` and `preflightLottie(input)`.
-- Where `input` is `{ project: ProjectData, frame: Frame }` — exporter exports a single frame's animation.
-- Add per-element-type mappers in `core/export/lottie/elements/`. One file each: `rect.ts`, `ellipse.ts`, `line.ts`, `polygon.ts`, `star.ts`, `path.ts`, `text.ts`, `group.ts`, `image.ts`. **Skip `video.ts`** — video is dropped with a preflight warning.
-- Add `core/export/lottie/easing.ts` translating Loopa's `EasingType` to Lottie's `{ i: { x: [], y: [] }, o: { x: [], y: [] } }` bezier handles.
-- Add `core/export/lottie/tracks.ts` translating a `Track[]` for a given element into Lottie's animatable property shape (see §10).
-- Wire `preflightLottie` into the shell's preflight call.
-- Wire `buildLottie` into `useExport.runExport()` for the lottie format.
+- Added `core/export/lottie/index.ts` exposing `buildLottie(input)` and `preflightLottie(input)`.
+- `input` is `{ project: ProjectData, frame: Frame, imageData: Record<string, string> }`.
+- Added per-element-type mappers in `core/export/lottie/elements/`. One file each: `rect.ts`, `ellipse.ts`, `line.ts`, `polygon.ts`, `star.ts`, `path.ts`, `text.ts`, `group.ts`, `image.ts`. `video.ts` skipped — video is dropped with a preflight warning.
+- Added `core/export/lottie/easing.ts` translating Loopa's `EasingType` to Lottie bezier handles.
+- Added `core/export/lottie/tracks.ts` translating `Track[]` into Lottie's animatable property shape (see §10).
+- Added `core/export/lottie/types.ts` for internal Lottie type definitions (`LottieLayer`, `LottieAsset`, etc.) — not in original spec but a clean addition.
+- Wired `preflightLottie` into the shell's preflight call.
+- Wired `buildLottie` into `useExport.runExport()` for the lottie format.
 - File name: `${projectName}-${frameName}.json`.
 
 ### Easing strategy (per CLAUDE.md easing.ts)
@@ -396,7 +405,7 @@ Embed image data as base64 in the Lottie `assets` array (`p` field with data URI
 
 See §10 for the full property → Lottie field table.
 
-### Done when
+### Done when ✅
 
 - A frame containing animated rects with rotation, opacity, and fill color produces a `.json` that plays correctly in `lottie-web`.
 - Bouncing easing produces visually correct playback (verified by eye against Loopa's preview).
@@ -409,38 +418,29 @@ See §10 for the full property → Lottie field table.
 ---
 
 <a name="phase-e3"></a>
-## Phase E3 — Render primitive
+## Phase E3 — Render primitive ✅
 
 **Goal**: A pure function `renderProjectAtFrame(project, frameId, frame, options) → RenderedFrame` that walks the document, computes every element at the given frame, and returns an SVG string + media layer descriptors. Used immediately for project thumbnails. Foundation for E4 and E5.
 
-### Tasks
+### Completed
 
-- Add `core/export/render/svgBuilder.ts`: per-element-type functions returning SVG-string fragments.
-  - One function per element type: `rectToSvg(el)`, `ellipseToSvg(el)`, ..., `pathToSvg(el)`, `textToSvg(el)`, `groupToSvg(el, children)`.
-  - These mirror what the existing `*Element.vue` renderers produce, but as strings, with no Vue.
-  - Image elements: embed image data as `xlink:href` data URI (read blob via `IDBMediaRepo` in the calling layer; pass dataURI through options).
-  - Video elements: emit nothing (placeholder rect optional). Video lives in `media` not in SVG.
-  - Mask groups: emit `<defs><mask>...</mask></defs>` and apply via `mask` attribute.
-- Add `core/export/render/renderProjectAtFrame.ts`:
-  - Signature: `renderProjectAtFrame(project: ProjectData, frameId: string, frame: number, options: RenderOptions) → RenderedFrame`
-  - For each element in `frame.elementIds` (recursively for groups), compute via `computeElementAt`, dispatch to svgBuilder.
+- Added `core/export/render/svgBuilder.ts`: per-element-type SVG-string functions.
+  - One function per element type: `rectToSvg`, `ellipseToSvg`, `lineToSvg`, `polygonToSvg`, `starToSvg`, `pathToSvg`, `textToSvg`, `imageToSvg`, `groupToSvg`.
+  - These mirror what the `*Element.vue` renderers produce, but as strings, with no Vue.
+  - Image elements: embed data URI passed through `options.imageData`.
+  - Video elements: emit nothing — video lives in the `media` array, not in SVG.
+  - Mask groups: emit `<defs><clipPath>...</clipPath></defs>` and apply via `clip-path` attribute.
+- Added `core/export/render/renderProjectAtFrame.ts`:
+  - Signature: `renderProjectAtFrame(project, frameId, frameNum, options) → RenderedFrame`
+  - Walks `frame.elementIds` recursively, computes each element via `computeElementAt`, dispatches to svgBuilder.
   - Returns `{ svg, media, width, height, backgroundColor }`.
-- Add a `composables/useThumbnail.ts` consumer:
-  - Generates a thumbnail by calling `renderProjectAtFrame` at frame 0, rasterizing the SVG via `Image` + `<canvas>` at 240×135, returning a data URI.
-  - Wire into the autosave path so thumbnails are populated on `ProjectMeta.thumbnail`.
+- Added `composables/useThumbnail.ts`:
+  - Calls `renderProjectAtFrame` at frame 0, rasterizes via `Image` + `<canvas>` at 240px wide, returns a data URI.
+  - Wired into the autosave path.
 
-### Why thumbnails first
+> **Deviation**: `core/export/render/types.ts` was not created. `RenderedFrame` and `MediaLayer` live in `src/types/export.ts` instead — a better placement since they are public API types consumed across layers.
 
-Thumbnails are the simplest consumer of the render primitive (one frame, one image, no encoder). They prove the primitive works end-to-end before E4 builds the multi-frame pipeline on top. Also resolves the unused `thumbnail` field in `ProjectMeta`, which otherwise sits as dead schema.
-
-### What this phase does NOT do
-
-- No multi-frame loop (that's E4)
-- No PNG sequence, GIF, MP4, WebM
-- No Web Worker yet — thumbnail generation is fast enough on main thread
-- No export modal integration — just the primitive + thumbnail composable
-
-### Done when
+### Done when ✅
 
 - Saving a project populates `meta.thumbnail` with a valid data URI.
 - The thumbnail visually matches frame 0 of the project at low resolution.
@@ -450,56 +450,56 @@ Thumbnails are the simplest consumer of the render primitive (one frame, one ima
 ---
 
 <a name="phase-e4"></a>
-## Phase E4 — Raster pipeline + PNG sequence + GIF
+## Phase E4 — Raster pipeline + PNG sequence + GIF ✅
 
 **Goal**: Multi-frame rasterization in a Web Worker, producing PNG sequence (`.zip`) and GIF (`.gif`).
 
-### Dependencies to add
+### Dependencies added
 
 ```bash
-pnpm add gif.js fflate
-pnpm add -D @types/gif.js
+pnpm add gifenc fflate
 ```
 
-If `@types/gif.js` doesn't exist on npm, write a minimal `.d.ts` file under `src/types/shims/gif.d.ts` rather than reaching for `as any`.
+> **Deviation**: `gif.js` was not used. `gifenc` was used instead. Reason: `gif.js` spawns its own sub-workers, which is not supported when the caller is already a Web Worker. `gifenc` is pure JS, works anywhere, and produces equivalent output. The type shim is `src/types/shims/gifenc.d.ts`.
 
-### Tasks
+### Completed
 
-- Add `core/export/raster/composeFrame.ts`:
+- Added `core/export/raster/composeFrame.ts`:
   - Signature: `composeFrame(rendered: RenderedFrame, scale: number) → Promise<ImageBitmap>`
-  - Steps: (1) rasterize SVG string via `Image` + `OffscreenCanvas.drawImage`; (2) for each `MediaLayer`, fetch the video element's frame at `time` using a hidden `<video>` element + `seekTo` + `drawImage`; (3) return composited ImageBitmap.
-  - **Critical**: video seeking is async. Wait for `seeked` event before drawing. Set `video.currentTime` then `await once(video, 'seeked')`.
-- Add `core/export/raster/renderJob.ts`:
-  - Signature: `async function* runRenderJob(project, frameId, options): AsyncIterable<{ index: number; total: number; bitmap: ImageBitmap }>`
+  - Uses `createImageBitmap(svgBlob)` to decode SVG; returns directly at scale=1 or resizes via `createImageBitmap(raw, { resizeWidth, resizeHeight })`.
+  - Video `MediaLayer` compositing is intentionally skipped (`// TODO: move video composition into worker`). The `media` array is produced by `renderProjectAtFrame` but not composited.
+  - **Critical**: `OffscreenCanvas.transferToImageBitmap()` throws `InvalidStateError` in some Chrome versions when called on a canvas with an active 2D context. This approach was found during testing and avoided entirely.
+- Added `core/export/raster/renderJob.ts`:
+  - `async function* runRenderJob(project, frameId, options): AsyncGenerator<{ index, total, bitmap }>`
   - Iterates frames 0..totalFrames, calls `renderProjectAtFrame`, then `composeFrame`, yields results.
-- Add `core/export/raster/png.ts`:
-  - Consumes the renderJob iterable, encodes each ImageBitmap to PNG via `OffscreenCanvas.convertToBlob`, packages with `fflate.zip`.
-  - Output filename: `${projectName}-${frameName}.zip`. Inside the zip: `frame-0001.png`, `frame-0002.png`, ...
-- Add `core/export/raster/gif.ts`:
-  - Use `gif.js` (or equivalent worker-based GIF encoder).
-  - Frame delay = `1000 / frame.fps` ms.
-  - Quality option maps to gif.js `quality` parameter (low: 20, medium: 10, high: 5).
-- Add Web Worker entry: `src/workers/exportWorker.ts`.
-  - Receives `{ format, project, frameId, options }`.
-  - Posts `{ type: 'progress', current, total }` messages.
-  - Posts `{ type: 'done', blob }` on success or `{ type: 'error', message }` on failure.
-- Add `composables/useExportWorker.ts`:
-  - Wraps worker lifecycle, exposes typed `runRasterExport(format, project, frameId, options)` returning a `{ progress$, result }` pair.
-- Wire into `useExport.runExport()` for `png-sequence` and `gif`.
+- Added `core/export/raster/png.ts`:
+  - Consumes the renderJob iterable, encodes each bitmap via `OffscreenCanvas.convertToBlob`, packages with `fflate.zipSync`.
+  - Output zip name: `${projectName}-${frameName}.zip`. Inside: `frame-0001.png`, `frame-0002.png`, ...
+- Added `core/export/raster/gif.ts`:
+  - Uses `gifenc` (`GIFEncoder`, `quantize`, `applyPalette`).
+  - Frame delay = `Math.round(100 / fps)` centiseconds.
+  - Quality maps to max color count: low=64, medium=128, high=256.
+- Added Web Worker entry: `src/workers/exportWorker.ts`.
+  - Receives `{ format, project, frameId, options, imageData }`.
+  - Posts `{ type: 'progress', current, total }`, `{ type: 'done', blob }`, or `{ type: 'error', message }`.
+- Added `composables/useExportWorker.ts`:
+  - Wraps worker lifecycle; exposes `runRasterExport(format, project, frameId, options, imageData, onProgress) → Promise<Blob>` and `cancel()`.
+  - **Deviation from spec**: returns `{ runRasterExport, cancel }` with a Promise + callback, not a `{ progress$, result }` reactive pair. Simpler and avoids a stream abstraction for a one-shot operation.
+  - Strips Vue reactive Proxies before `postMessage` via `JSON.parse(JSON.stringify(data))`.
+- Wired into `useExport.runExport()` for `png-sequence` and `gif`.
 
-### Critical caveats
+### Critical caveats (as built)
 
-- **Image element data**: must be pre-resolved before posting to worker. The worker has no IndexedDB access in this app's design. Read all image blobs in `useExport`, replace `imageStorageId` references with data URIs in the project copy sent to the worker.
-- **Video element data**: same — read video blobs, create object URLs, pass URLs in. The worker creates `<video>` elements off `OffscreenCanvas` is not enough; for video frame extraction the worker must use `VideoFrame` from WebCodecs or a `<video>` proxy. **Simpler v1**: do video composition on main thread, post the composed bitmap into the worker. Document this in code with `// TODO: move video composition into worker`.
-- **SVG rasterization in workers**: `Image()` is not available in workers. Use `createImageBitmap(svgBlob)` instead, which works in workers.
-- **Font loading**: SVG `<text>` elements depend on web fonts. Before rasterizing, ensure `document.fonts.ready` resolves on main thread; the worker inherits no font context. If text exports look wrong, add a preflight `info` warning that fonts are best-effort and consider rasterizing text as paths in a future phase.
+- **Image element data**: pre-resolved to data URIs on main thread via `gatherImageData()` in `core/export/imageData.ts` before posting to worker. Worker has no IndexedDB access.
+- **SVG rasterization in workers**: `Image()` is not available in workers. `createImageBitmap(svgBlob)` is used instead. `OffscreenCanvas.transferToImageBitmap()` is avoided (see composeFrame note above).
+- **Font loading**: SVG `<text>` elements depend on web fonts. The worker inherits no font context. Text exports are best-effort; consider rasterizing text as paths in a future phase.
 
 ### Per-format preflight
 
 - `preflightPng(project, frameId)` — empty by default. Add `info` if any element type isn't yet rasterized correctly.
 - `preflightGif(project, frameId)` — same. Add `info`: "GIF has no audio. Audio from video elements will be lost." (informational even if there are no videos — keeps the messaging consistent.)
 
-### Done when
+### Done when ✅
 
 - Export PNG sequence on a 240-frame project produces a `.zip` with 240 numbered PNGs that visually match the editor preview.
 - Export GIF produces a playable `.gif` at the project's fps.
@@ -510,29 +510,26 @@ If `@types/gif.js` doesn't exist on npm, write a minimal `.d.ts` file under `src
 ---
 
 <a name="phase-e5"></a>
-## Phase E5 — MP4 + WebM via WebCodecs
+## Phase E5 — MP4 + WebM via WebCodecs ✅
 
 **Goal**: Video export reusing the raster pipeline. No audio in v1.
 
-### Dependencies to add
+### Dependencies added
 
 ```bash
 pnpm add mp4-muxer webm-muxer
 ```
 
-### Tasks
+### Completed
 
-- Add `core/export/raster/webCodecsEncoder.ts`:
-  - Wraps `VideoEncoder` from WebCodecs.
-  - Configurable codec (`avc1.42E01E` for MP4, `vp09.00.10.08` for WebM).
-  - Consumes `ImageBitmap` per frame, produces encoded chunks.
-- Add `core/export/raster/mp4.ts`:
-  - Uses `mp4-muxer` to mux H.264 video track.
-  - Output: `${projectName}-${frameName}.mp4`.
-- Add `core/export/raster/webm.ts`:
-  - Uses `webm-muxer` to mux VP9 video track.
-  - Output: `${projectName}-${frameName}.webm`.
-- Wire both into the worker.
+> **Deviation**: `webCodecsEncoder.ts`, `mp4.ts`, and `webm.ts` were not created as separate files. All three live in a single `core/export/raster/video.ts` with an internal `encodeToMuxer` shared helper that takes codec string and muxer's `addChunk` callback. Public exports are `buildMp4` and `buildWebm`. The consolidation is appropriate at 109 lines total.
+
+- Added `core/export/raster/video.ts`:
+  - `buildMp4(frames, fps, width, height, bitrate, onProgress) → Promise<Blob>`: H.264 via `avc1.42001f`, muxed with `mp4-muxer`.
+  - `buildWebm(frames, fps, width, height, bitrate, onProgress) → Promise<Blob>`: VP9 via `vp09.00.10.08`, muxed with `webm-muxer`.
+  - Both formats enforce even pixel dimensions (required by H.264 and VP9).
+  - Shared `encodeToMuxer` internal helper eliminates duplicated encode loop.
+- Wired both into the worker alongside PNG/GIF.
 
 ### WebCodecs availability
 
@@ -558,7 +555,7 @@ The format picker should still show MP4/WebM as options — surfacing the error 
 
 User can override in options panel.
 
-### Done when
+### Done when ✅
 
 - Export MP4 of a 10-second 1280×720 project produces a playable `.mp4` in QuickTime, VLC, and browsers.
 - Export WebM produces a playable `.webm` in Chrome and Firefox.

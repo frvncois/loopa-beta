@@ -1,22 +1,26 @@
 import { ref } from 'vue'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useThumbnail } from './useThumbnail'
+import { useSaveOrchestrator } from './useSaveOrchestrator'
 
 type SaveStatus = 'idle' | 'saving' | 'saved'
 
-// Module-level singletons
+// Module-level singletons (local-save state only)
 const _status  = ref<SaveStatus>('idle')
 const _savedAt = ref<number | null>(null)
 let _debounce: ReturnType<typeof setTimeout> | null = null
 let _isSaving  = false
 
 export function useAutosave() {
-  const doc = useDocumentStore()
+  const doc          = useDocumentStore()
   const { generateThumbnail } = useThumbnail()
+  const orchestrator = useSaveOrchestrator()
 
   async function doSave(): Promise<void> {
+    // Cloud saves are handled entirely by useSaveOrchestrator
+    if (doc.location === 'cloud') return
     if (_isSaving) return
-    _isSaving    = true
+    _isSaving     = true
     _status.value = 'saving'
     try {
       const firstFrame = doc.frames[0]
@@ -27,7 +31,7 @@ export function useAutosave() {
         } catch { /* thumbnail failure is non-fatal */ }
       }
       await doc.saveProject()
-      _status.value = 'saved'
+      _status.value  = 'saved'
       _savedAt.value = Date.now()
       setTimeout(() => {
         if (_status.value === 'saved') _status.value = 'idle'
@@ -43,8 +47,9 @@ export function useAutosave() {
   }
 
   function register(): void {
+    orchestrator.initCloudWatcher()
     doc.$subscribe(() => {
-      if (_isSaving) return
+      if (_isSaving || doc.location === 'cloud') return
       schedule()
     })
   }

@@ -6,7 +6,7 @@ Project-level instructions for Claude Code. Read this BEFORE writing any code.
 
 ## Project
 
-**Loopa** — browser-based SVG/motion graphics keyframe animation tool. Webflow-inspired dark UI. Local-first (localStorage + IndexedDB). No backend, no auth, no exports in v2 scope.
+**Loopa** — browser-based SVG/motion graphics keyframe animation tool. Webflow-inspired dark UI. Local-first by default; cloud-backed via Supabase for authenticated users. Full export pipeline (Lottie, PNG sequence, GIF, MP4, WebM) ships in v2. See `SUPABASE.md` for the backend/auth/dashboard/billing spec.
 
 **The visual design must match the v1 prototype exactly.** Tokens and patterns are defined below; they are non-negotiable.
 
@@ -83,12 +83,13 @@ src/
 ├── types/                      # Pure TS types, zero deps
 ├── core/                       # Pure TS, ZERO Vue imports
 │   ├── animation/              # easing, interpolate, tracks, engine
-│   ├── elements/               # factory, bounds, transforms
-│   ├── path/                   # parser, builder, hitTest
+│   ├── elements/               # factory, bounds
+│   ├── path/                   # builder, motionPathMath
 │   ├── persistence/            # ProjectRepository + impls
+│   ├── export/                 # lottie/, render/, raster/, imageData.ts
 │   └── utils/
 │
-├── stores/                     # Pinia stores (7 total)
+├── stores/                     # Pinia stores (8 total)
 ├── composables/                # Cross-cutting reactive helpers
 │
 ├── ui/                         # Design-system primitives (Tailwind)
@@ -102,7 +103,7 @@ src/
 │
 ├── features/                   # High-level UI features
 │   ├── canvas/  layers/  properties/  timeline/
-│   ├── frames/  components-system/  masks/  motion-paths/
+│   ├── frames/  masks/  motion-paths/  export/  landing/
 │
 ├── layout/                     # EditorShell, EditorTopbar
 ├── views/                      # EditorView
@@ -118,17 +119,19 @@ src/
 
 ## Stores (Pinia)
 
-Seven stores, each with one job. NEVER add to a store outside its responsibility.
+Nine stores, each with one job. NEVER add to a store outside its responsibility.
 
 | Store | Owns |
 |-------|------|
-| `useDocumentStore` | The persisted document: frames, elements, tracks, components, masks, motionPaths. Mutations only. No UI state. |
+| `useDocumentStore` | The persisted document: frames, elements, tracks, masks, motionPaths. Mutations only. No UI state. |
 | `useSelectionStore` | `selectedIds`, `activeFrameId`, `activeGroupId`, `editingPathId`, hover state |
 | `useViewportStore` | zoom, pan, grid, snap, rulers, guides |
 | `useToolStore` | `currentTool`, tool-specific options |
 | `useTimelineStore` | `currentFrame`, `isPlaying`, fps, totalFrames, loop, direction |
 | `useHistoryStore` | Transaction-based undo/redo. Snapshot strategy. |
 | `useClipboardStore` | Copy/paste with new IDs |
+| `useExportStore` | Current export job state machine (idle → exporting → done / error / cancelled). Tracks job, preflight, progress, result. Does NOT run exports — that is `useExport`. |
+| `useAuthStore` | Supabase session: `user`, `profile` (plan, storage), `status` (loading / anonymous / authenticated). `signIn`, `signOut`, `refresh`. Initialized before router mounts. |
 
 Stores are imported where needed. Don't pass them through props.
 
@@ -189,25 +192,25 @@ Every inspector section in the right panel follows this exact shape. The primiti
 
 ```vue
 <!-- Canonical inspector section -->
-<InspectorSection title="Position">
-  <InspectorRow>
-    <InspectorLabel>X</InspectorLabel>
+<CollapsibleSection title="Position">
+  <Row>
+    <Label>X</Label>
     <NumberField v-model="x" />
-  </InspectorRow>
-  <InspectorRow>
-    <InspectorLabel>Y</InspectorLabel>
+  </Row>
+  <Row>
+    <Label>Y</Label>
     <NumberField v-model="y" />
-  </InspectorRow>
-</InspectorSection>
+  </Row>
+</CollapsibleSection>
 ```
 
 The primitives expand to (for reference, do not duplicate):
 
 | Primitive | Tailwind |
 |-----------|----------|
-| `InspectorSection` | `px-3 py-2.5 border-b border-border` |
-| `InspectorRow` | `flex items-center gap-1.5 min-h-input` |
-| `InspectorLabel` | `w-label min-w-label text-xs text-text-3 font-medium truncate` |
+| `CollapsibleSection` | `px-3 py-2.5 border-b border-border` with collapsible header |
+| `Row` | `flex items-center gap-1.5 min-h-input` |
+| `Label` | `w-label min-w-label text-xs text-text-3 font-medium truncate` |
 | `NumberField` (root) | `flex-1 min-w-0 h-input bg-bg-3 border border-border rounded-sm px-[7px] font-mono text-xs text-text-1 outline-none transition-colors focus:border-accent disabled:opacity-40` |
 | `NumberField.is-pair` | replaces `flex-1` with `w-[4.75rem]` |
 | `Select` | same as NumberField but with custom chevron background |
@@ -307,15 +310,24 @@ Snapshot the document at transaction boundaries. Cap at 100 snapshots. There is 
 If you're tempted to add any of these, stop:
 
 - AI assistant, animation suggestions
-- Figma integration, OAuth, Cloudflare worker
-- Exporters (Lottie, MP4, WebM, SVG+CSS)
+- Figma integration, OAuth providers, Cloudflare worker
+- SVG+CSS export
 - Interactions / triggers (hover, click navigation)
-- Supabase, any backend
-- Authentication, login, dashboard, multi-project routing
+- Edit collaboration, realtime sync, CRDT
 - `window.dispatchEvent` event bus
 - `lib/` folder (it's `core/` now)
-- `editorStore` (it's split into 7 stores)
+- `editorStore` (it's split into stores)
 - `useAnimatedEditing` (per-property tracks make it unnecessary)
+
+---
+
+## Export / Worker Conventions
+
+These emerged from the export system build and are non-obvious:
+
+- **SVG rasterization in Web Workers**: use `createImageBitmap(svgBlob)` — `new Image()` is not available in workers. Do NOT use `OffscreenCanvas.transferToImageBitmap()` on a canvas that has an active 2D context; it throws `InvalidStateError` in some Chrome versions.
+- **Pinia state → Web Worker**: always strip reactive Proxies before `postMessage`. Use `JSON.parse(JSON.stringify(data))` — structured clone throws `DataCloneError` on Vue Proxy objects from Pinia store state.
+- **Image data pre-resolution**: the worker has no IndexedDB access. All image blobs must be resolved to data URIs on the main thread (via `gatherImageData` in `core/export/imageData.ts`) before the project is posted to the worker.
 
 ---
 

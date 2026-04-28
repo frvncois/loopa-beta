@@ -10,8 +10,8 @@ import { buildSvgPath } from '@/core/path/builder'
 import { createDefaultElement } from '@/core/elements/factory'
 import { generateId } from '@/core/utils/id'
 import { distance } from '@/core/utils/math'
-import { registerTool } from '../_base/registry'
-import type { ToolController, CanvasContext } from '../_base/types'
+import { registerTool } from '../../_base/registry'
+import type { ToolController, CanvasContext } from '../../_base/types'
 import type { PathPoint, PathElement } from '@/types/element'
 
 // ── Constants ────────────────────────────────────────────────────────────────

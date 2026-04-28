@@ -1,6 +1,7 @@
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
+import { usePlanLimits } from './usePlanLimits'
 import { IDBMediaRepo } from '@/core/persistence/IDBMediaRepo'
 import { createDefaultElement } from '@/core/elements/factory'
 import { generateId } from '@/core/utils/id'
@@ -37,9 +38,10 @@ function scaledDims(naturalW: number, naturalH: number): { w: number; h: number 
 }
 
 export function useAddMedia() {
-  const doc      = useDocumentStore()
+  const doc       = useDocumentStore()
   const selection = useSelectionStore()
-  const history  = useHistoryStore()
+  const history   = useHistoryStore()
+  const limits    = usePlanLimits()
 
   async function addImageFile(
     file: File,
@@ -47,6 +49,10 @@ export function useAddMedia() {
     dropX?: number,
     dropY?: number,
   ): Promise<void> {
+    if (doc.location === 'cloud' && file.size > limits.storageRemaining.value) {
+      limits.showUpgradeModal('storage')
+      return
+    }
     const storageId = generateId('media')
     await mediaRepo.put(storageId, file)
 
@@ -79,6 +85,10 @@ export function useAddMedia() {
     dropX?: number,
     dropY?: number,
   ): Promise<void> {
+    if (doc.location === 'cloud' && file.size > limits.storageRemaining.value) {
+      limits.showUpgradeModal('storage')
+      return
+    }
     const storageId = generateId('media')
     await mediaRepo.put(storageId, file)
 

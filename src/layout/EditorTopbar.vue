@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import { useHistoryStore } from '@/stores/useHistoryStore'
 import { useDocumentStore } from '@/stores/useDocumentStore'
-import { useAutosave } from '@/composables/useAutosave'
 import { useEditorModals } from '@/composables/useEditorModals'
 import { useExport } from '@/composables/useExport'
 import IconButton from '@/ui/IconButton.vue'
 import Button from '@/ui/Button.vue'
 import Divider from '@/ui/Divider.vue'
 import Toolbar from '@/features/canvas/Toolbar.vue'
+import SaveButton from '@/features/editor/SaveButton.vue'
+import SaveStatusIndicator from '@/features/editor/SaveStatusIndicator.vue'
 import { IconUndo, IconRedo, IconSettings } from '@/ui/icons'
 
-const history  = useHistoryStore()
-const doc      = useDocumentStore()
-const autosave = useAutosave()
-const modals   = useEditorModals()
+const history        = useHistoryStore()
+const doc            = useDocumentStore()
+const modals         = useEditorModals()
 const { openExport } = useExport()
 </script>
 
 <template>
   <header class="h-topbar flex-shrink-0 flex items-center px-3 gap-2 bg-bg-2 border-b border-border">
-    <!-- Left: project name -->
+    <!-- Left: project name + save state -->
     <div class="flex items-center gap-2 flex-1 min-w-0">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" class="flex-shrink-0 text-accent">
         <rect x="2" y="2" width="12" height="12" rx="3" fill="currentColor" opacity="0.15" />
@@ -28,14 +28,8 @@ const { openExport } = useExport()
       <span class="text-xs font-semibold text-text-2 truncate select-none">
         {{ doc.meta?.name ?? 'Untitled' }}
       </span>
-      <Transition
-        enter-from-class="opacity-0" enter-active-class="transition-opacity duration-[140ms]"
-        leave-to-class="opacity-0"   leave-active-class="transition-opacity duration-[140ms]"
-      >
-        <span v-if="autosave.status.value !== 'idle'" class="text-[10px] text-text-4 select-none flex-shrink-0">
-          {{ autosave.status.value === 'saving' ? 'Saving…' : 'Saved' }}
-        </span>
-      </Transition>
+      <SaveStatusIndicator />
+      <SaveButton />
     </div>
 
     <!-- Center: toolbar -->

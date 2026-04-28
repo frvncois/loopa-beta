@@ -6,14 +6,17 @@ import type { Track, PropertyPath } from '@/types/track'
 import type { Frame } from '@/types/frame'
 import type { MotionPath } from '@/types/motion-path'
 import type { ProjectData, ProjectMeta } from '@/types/project'
+import type { DocumentLocation, SaveStatus } from '@/types/cloud'
 import { generateId } from '@/core/utils/id'
 import { LocalProjectRepo } from '@/core/persistence/LocalProjectRepo'
+import { RemoteProjectRepo } from '@/core/persistence/RemoteProjectRepo'
 import { createTrackActions } from './documentTrackActions'
 import { createGroupMaskActions } from './documentMaskActions'
 import { createDuplicateActions } from './documentDuplicateActions'
 
-const repo      = new LocalProjectRepo()
-const mediaRepo = new IDBMediaRepo()
+const repo       = new LocalProjectRepo()
+const mediaRepo  = new IDBMediaRepo()
+const cloudRepo  = new RemoteProjectRepo()
 
 export const useDocumentStore = defineStore('document', () => {
   const projectId   = ref<string | null>(null)
@@ -22,6 +25,22 @@ export const useDocumentStore = defineStore('document', () => {
   const elements    = ref<Element[]>([])
   const tracks      = ref<Track[]>([])
   const motionPaths = ref<MotionPath[]>([])
+
+  // ── Cloud / save state ────────────────────────────────────────────────────
+
+  const location          = ref<DocumentLocation>('none')
+  const slug              = ref<string | null>(null)
+  const cloudProjectId    = ref<string | null>(null)
+  const isDirty           = ref(false)
+  const saveStatus        = ref<SaveStatus>('clean')
+  const lastServerVersion = ref<number | null>(null)
+
+  function markDirty(): void {
+    isDirty.value = true
+    if (saveStatus.value === 'clean' || saveStatus.value === 'saved') {
+      saveStatus.value = 'dirty'
+    }
+  }
 
   // ── Getters ──────────────────────────────────────────────────────────────
 
@@ -88,6 +107,11 @@ export const useDocumentStore = defineStore('document', () => {
   const groupMaskActs  = createGroupMaskActions(elements, frames, elementById, frameById)
   const duplicateActs  = createDuplicateActions(elements, frames, tracks, elementById, frameById)
 
+  // Wrap factory actions so they also mark the document dirty
+  function _dirty<T extends (...args: never[]) => unknown>(fn: T): T {
+    return ((...args: Parameters<T>) => { markDirty(); return fn(...args) }) as T
+  }
+
   // ── Project ───────────────────────────────────────────────────────────────
 
   function loadProject(data: ProjectData): void {
@@ -115,9 +139,31 @@ export const useDocumentStore = defineStore('document', () => {
     })) as ProjectData
   }
 
+  function initLocal(): void {
+    location.value          = 'local'
+    slug.value              = null
+    cloudProjectId.value    = null
+    isDirty.value           = false
+    saveStatus.value        = 'clean'
+    lastServerVersion.value = null
+  }
+
+  async function loadFromCloud(projectSlug: string): Promise<void> {
+    const project = await cloudRepo.loadBySlug(projectSlug)
+    if (!project) throw new Error(`Project not found: ${projectSlug}`)
+    loadProject(project.data)
+    location.value          = 'cloud'
+    slug.value              = projectSlug
+    cloudProjectId.value    = project.meta.id
+    lastServerVersion.value = project.meta.version
+    isDirty.value           = false
+    saveStatus.value        = 'clean'
+  }
+
   // ── Frame actions ─────────────────────────────────────────────────────────
 
   function addFrame(name?: string, width?: number, height?: number): string {
+    markDirty()
     const id = generateId('frame')
     let canvasX = 0
     for (const f of frames.value) canvasX = Math.max(canvasX, f.canvasX + f.width + 200)
@@ -132,17 +178,20 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function updateFrame(id: string, updates: Partial<Frame>): void {
+    markDirty()
     const frame = frameById(id)
     if (frame) Object.assign(frame, updates)
   }
 
   function deleteFrame(id: string): void {
+    markDirty()
     const frame = frameById(id)
     if (frame) deleteElements(frame.elementIds.slice())
     frames.value = frames.value.filter((f) => f.id !== id)
   }
 
   function reorderFrame(id: string, newIndex: number): void {
+    markDirty()
     const idx = frames.value.findIndex((f) => f.id === id)
     if (idx === -1) return
     const [frame] = frames.value.splice(idx, 1)
@@ -154,12 +203,14 @@ export const useDocumentStore = defineStore('document', () => {
   // ── Element actions ───────────────────────────────────────────────────────
 
   function addElement(element: Element, frameId: string): void {
+    markDirty()
     elements.value.push(element)
     const frame = frameById(frameId)
     if (frame) frame.elementIds.push(element.id)
   }
 
   function updateElement(id: string, updates: Partial<Element>): void {
+    markDirty()
     const existing = elements.value.find((e) => e.id === id)
     if (!existing) return
     if (existing.type === 'group' && ('x' in updates || 'y' in updates)) {
@@ -177,6 +228,7 @@ export const useDocumentStore = defineStore('document', () => {
 
   function deleteElements(ids: string[]): void {
     if (ids.length === 0) return
+    markDirty()
     const toDelete = new Set<string>()
     const queue = [...ids]
     while (queue.length > 0) {
@@ -209,6 +261,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function bringToFront(id: string): void {
+    markDirty()
     for (const frame of frames.value) {
       const idx = frame.elementIds.indexOf(id)
       if (idx !== -1) { frame.elementIds.splice(idx, 1); frame.elementIds.push(id); return }
@@ -216,6 +269,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function sendToBack(id: string): void {
+    markDirty()
     for (const frame of frames.value) {
       const idx = frame.elementIds.indexOf(id)
       if (idx !== -1) { frame.elementIds.splice(idx, 1); frame.elementIds.unshift(id); return }
@@ -223,6 +277,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function reorderElement(id: string, newIndex: number): void {
+    markDirty()
     for (const frame of frames.value) {
       const idx = frame.elementIds.indexOf(id)
       if (idx !== -1) {
@@ -234,6 +289,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   function moveElementsToFrame(ids: string[], frameId: string): void {
+    markDirty()
     const targetFrame = frameById(frameId)
     if (!targetFrame) return
     for (const id of ids) {
@@ -248,17 +304,20 @@ export const useDocumentStore = defineStore('document', () => {
   // ── Motion path actions ───────────────────────────────────────────────────
 
   function addMotionPath(mp: MotionPath): void {
+    markDirty()
     const idx = motionPaths.value.findIndex((m) => m.elementId === mp.elementId)
     if (idx !== -1) motionPaths.value[idx] = mp
     else motionPaths.value.push(mp)
   }
 
   function updateMotionPath(id: string, updates: Partial<MotionPath>): void {
+    markDirty()
     const mp = motionPaths.value.find((m) => m.id === id)
     if (mp) Object.assign(mp, updates)
   }
 
   function deleteMotionPath(id: string): void {
+    markDirty()
     motionPaths.value = motionPaths.value.filter((m) => m.id !== id)
   }
 
@@ -289,24 +348,27 @@ export const useDocumentStore = defineStore('document', () => {
 
   return {
     projectId, meta, frames, elements, tracks, motionPaths,
+    location, slug, cloudProjectId, isDirty, saveStatus, lastServerVersion,
     childToGroupMap, elementToFrameMap,
     elementById, elementsByIds, frameById, tracksForElement, trackForProperty,
     elementsForFrame, topLevelElementsForFrame,
-    loadProject, clearProject, serialize,
-    addFrame, updateFrame, deleteFrame, duplicateFrame: duplicateActs.duplicateFrame, reorderFrame,
+    markDirty,
+    loadProject, clearProject, serialize, initLocal, loadFromCloud,
+    addFrame, updateFrame, deleteFrame, reorderFrame,
+    duplicateFrame: _dirty(duplicateActs.duplicateFrame),
     addElement, updateElement, deleteElements,
     bringToFront, sendToBack, reorderElement,
-    duplicateElements: duplicateActs.duplicateElements,
-    groupElements: groupMaskActs.groupElements,
-    ungroupElements: groupMaskActs.ungroupElements,
-    applyMask: groupMaskActs.applyMask,
-    swapMaskShape: groupMaskActs.swapMaskShape,
+    duplicateElements: _dirty(duplicateActs.duplicateElements),
+    groupElements:    _dirty(groupMaskActs.groupElements),
+    ungroupElements:  _dirty(groupMaskActs.ungroupElements),
+    applyMask:        _dirty(groupMaskActs.applyMask),
+    swapMaskShape:    _dirty(groupMaskActs.swapMaskShape),
     moveElementsToFrame,
-    addTrack: trackActions.addTrack,
-    upsertKeyframe: trackActions.upsertKeyframe,
-    deleteKeyframe: trackActions.deleteKeyframe,
-    deleteTracksForElement: trackActions.deleteTracksForElement,
-    setTrackEnabled: trackActions.setTrackEnabled,
+    addTrack:              _dirty(trackActions.addTrack),
+    upsertKeyframe:        _dirty(trackActions.upsertKeyframe),
+    deleteKeyframe:        _dirty(trackActions.deleteKeyframe),
+    deleteTracksForElement: _dirty(trackActions.deleteTracksForElement),
+    setTrackEnabled:       _dirty(trackActions.setTrackEnabled),
     addMotionPath, updateMotionPath, deleteMotionPath,
     updateMeta, deleteProject, saveProject, loadProjectById,
   }

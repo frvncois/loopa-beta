@@ -1,7 +1,10 @@
 import { useDocumentStore } from '@/stores/useDocumentStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { renderProjectAtFrame } from '@/core/export/render/renderProjectAtFrame'
 import { IDBMediaRepo } from '@/core/persistence/IDBMediaRepo'
 import { gatherImageData } from '@/core/export/imageData'
+import { supabase } from '@/core/supabase/client'
+import { dbUpdateThumbnail } from '@/core/supabase/queries'
 
 const _mediaRepo = new IDBMediaRepo()
 
@@ -41,5 +44,27 @@ export function useThumbnail() {
     return canvas.toDataURL('image/png')
   }
 
-  return { generateThumbnail }
+  async function uploadThumbnail(projectId: string, dataUri: string): Promise<string | null> {
+    const auth = useAuthStore()
+    if (!auth.user) return null
+
+    const res  = await fetch(dataUri)
+    const blob = await res.blob()
+    const path = `${auth.user.id}/${projectId}.png`
+
+    const { error } = await supabase.storage
+      .from('thumbnails')
+      .upload(path, blob, { upsert: true, contentType: 'image/png' })
+    if (error) {
+      console.warn('Thumbnail upload failed:', error.message)
+      return null
+    }
+
+    const { data } = supabase.storage.from('thumbnails').getPublicUrl(path)
+    const url = data.publicUrl
+    await dbUpdateThumbnail(projectId, url)
+    return url
+  }
+
+  return { generateThumbnail, uploadThumbnail }
 }
