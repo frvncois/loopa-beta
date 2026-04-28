@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Supabase CLI scratch files
+supabase/.temp/
+
 # Logs
 logs
 *.log
