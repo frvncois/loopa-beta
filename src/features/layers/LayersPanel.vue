@@ -4,6 +4,7 @@ import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
 import { useFrameActivation } from '@/composables/useFrameActivation'
+import { useEditorModals } from '@/composables/useEditorModals'
 import type { GroupElement } from '@/types/element'
 import FrameRow from './FrameRow.vue'
 import ElementRow from './ElementRow.vue'
@@ -12,6 +13,7 @@ const doc       = useDocumentStore()
 const selection = useSelectionStore()
 const history   = useHistoryStore()
 const { activateFrame } = useFrameActivation()
+const modals    = useEditorModals()
 
 const frames = computed(() => [...doc.frames].sort((a, b) => a.order - b.order))
 
@@ -76,7 +78,8 @@ function onReleaseMask(): void {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-h-0 overflow-y-auto" @click="closeCtxMenu">
+  <div class="flex-1 flex flex-col min-h-0" @click="closeCtxMenu">
+  <div class="flex-1 overflow-y-auto min-h-0">
     <!-- One section per frame -->
     <template v-for="frame in frames" :key="frame.id">
       <FrameRow
@@ -99,6 +102,19 @@ function onReleaseMask(): void {
     <div v-if="frames.length === 0" class="flex-1 flex items-center justify-center">
       <span class="text-xs text-text-4 select-none">No frames</span>
     </div>
+  </div>
+
+  <!-- Shortcuts CTA -->
+  <button
+    type="button"
+    class="flex items-center justify-between w-full px-3 h-[30px] min-h-[30px] border-t border-border
+           text-[10px] text-text-4 hover:text-text-2 hover:bg-bg-3 transition-colors duration-[140ms] select-none flex-shrink-0"
+    @click.stop="modals.showShortcuts.value = true"
+  >
+    <span>Keyboard shortcuts</span>
+    <kbd class="font-mono text-[9px] text-text-4 bg-bg-4 border border-border rounded px-1 py-px">?</kbd>
+  </button>
+
   </div>
 
   <!-- Floating context menu -->

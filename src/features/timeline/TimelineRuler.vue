@@ -7,6 +7,7 @@ const props = defineProps<{
   pixelsPerFrame: number
   labelWidth: number
   height: number
+  totalWidth: number
 }>()
 
 const { onPointerDown, onPointerMove, onPointerUp } = useRulerScrub()
@@ -32,7 +33,7 @@ const ticks = computed(() => {
     <!-- Ruler background (click to seek) -->
     <rect
       :x="labelWidth" y="0"
-      :width="totalFrames * pixelsPerFrame + 40" :height="height"
+      :width="totalWidth - labelWidth" :height="height"
       fill="#0e0e18"
       style="cursor: pointer"
       @pointerdown="onPointerDown"
@@ -42,8 +43,7 @@ const ticks = computed(() => {
     <!-- Label area background -->
     <rect x="0" y="0" :width="labelWidth" :height="height" fill="#0e0e18" />
     <!-- Bottom border -->
-    <line x1="0" :y1="height" :x2="totalFrames * pixelsPerFrame + labelWidth + 40" :y2="height"
-      stroke="#1e1e28" stroke-width="1" />
+    <line x1="0" :y1="height" :x2="totalWidth" :y2="height" stroke="#1e1e28" stroke-width="1" />
     <!-- Ticks -->
     <g v-for="tick in ticks" :key="tick.frame" class="pointer-events-none">
       <line

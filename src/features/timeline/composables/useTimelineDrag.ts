@@ -62,7 +62,7 @@ export function useRulerScrub() {
 
 // ── Keyframe dragging ──────────────────────────────────────────────────────
 
-export function useKeyframeDrag(trackId: string, keyframeId: string) {
+function useKeyframeDrag(trackId: string, keyframeId: string) {
   const doc = useDocumentStore()
   const history = useHistoryStore()
   const timeline = useTimelineStore()

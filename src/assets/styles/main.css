@@ -99,10 +99,7 @@
    ------------------------------------------------------------------------ */
 
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
+/* Editor shell uses overflow-hidden on its own root div — no global clip needed */
 
 body {
   font-family: var(--font-sans);

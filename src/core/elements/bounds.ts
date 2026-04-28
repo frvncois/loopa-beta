@@ -5,7 +5,7 @@ export function getBounds(el: Element): Bounds {
   return { x: el.x, y: el.y, width: el.width, height: el.height }
 }
 
-export function getMultiBounds(elements: Element[]): Bounds | null {
+function getMultiBounds(elements: Element[]): Bounds | null {
   if (elements.length === 0) return null
   let minX = Infinity
   let minY = Infinity

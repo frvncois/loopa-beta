@@ -38,12 +38,6 @@ export class IDBMediaRepo implements MediaRepository {
     return result ?? null
   }
 
-  async delete(id: string): Promise<void> {
-    const db = await openDB()
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    await idbRequest(tx.objectStore(STORE_NAME).delete(id))
-  }
-
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return
     const db = await openDB()

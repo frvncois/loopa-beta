@@ -5,9 +5,6 @@ const router = createRouter({
   routes: [
     { path: '/',    component: () => import('@/views/LandingView.vue') },
     { path: '/app', component: () => import('@/views/EditorView.vue') },
-    ...(import.meta.env.DEV
-      ? [{ path: '/_dev', component: () => import('@/views/DevView.vue') }]
-      : []),
   ],
 })
 

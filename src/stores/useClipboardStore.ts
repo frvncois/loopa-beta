@@ -25,9 +25,11 @@ export const useClipboardStore = defineStore('clipboard', () => {
     const elementIdSet = new Set(els.map((e) => e.id))
     const clipTracks = doc.tracks.filter((t) => elementIdSet.has(t.elementId))
 
+    // JSON round-trip strips Vue reactive Proxies before cloning.
+    // structuredClone alone throws DOMException on Proxy objects.
     data.value = {
-      elements: structuredClone(els),
-      tracks: structuredClone(clipTracks),
+      elements: JSON.parse(JSON.stringify(els)) as Element[],
+      tracks:   JSON.parse(JSON.stringify(clipTracks)) as Track[],
       sourceProjectId: doc.projectId ?? '',
       timestamp: Date.now(),
     }

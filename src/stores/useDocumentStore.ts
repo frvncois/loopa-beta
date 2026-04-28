@@ -264,7 +264,7 @@ export const useDocumentStore = defineStore('document', () => {
 
   // ── Persistence ───────────────────────────────────────────────────────────
 
-  function updateMeta(updates: Partial<{ name: string }>): void {
+  function updateMeta(updates: Partial<{ name: string; thumbnail: string | null }>): void {
     if (meta.value) Object.assign(meta.value, updates)
   }
 

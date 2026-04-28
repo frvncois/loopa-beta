@@ -45,7 +45,4 @@ export class LocalProjectRepo implements ProjectRepository {
     localStorage.setItem(INDEX_KEY, JSON.stringify(index.filter((m) => m.id !== id)))
   }
 
-  async exists(id: string): Promise<boolean> {
-    return localStorage.getItem(projectKey(id)) !== null
-  }
 }

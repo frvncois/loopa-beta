@@ -16,7 +16,7 @@ export function hexToRgb(hex: string): Rgb | null {
   return { r, g, b }
 }
 
-export function rgbToHex(r: number, g: number, b: number): string {
+function rgbToHex(r: number, g: number, b: number): string {
   return [r, g, b]
     .map((v) => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0'))
     .join('')
@@ -29,7 +29,7 @@ export function lerpColor(from: string, to: string, t: number): string {
   return rgbToHex(lerp(a.r, b.r, t), lerp(a.g, b.g, t), lerp(a.b, b.b, t))
 }
 
-export function hexWithAlpha(hex: string, alpha: number): string {
+function hexWithAlpha(hex: string, alpha: number): string {
   const clean = hex.replace('#', '').slice(0, 6)
   const a = Math.round(clamp(alpha, 0, 1) * 255)
     .toString(16)

@@ -97,13 +97,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeyDown))
     <div class="flex-1" />
 
     <!-- Add Keyframe -->
-    <IconButton
-      size="sm"
-      variant="ghost"
+    <button
+      class="inline-flex items-center gap-1.5 h-input-sm px-2 rounded-sm border text-[11px] font-medium transition-colors duration-[140ms] select-none
+             border-border bg-bg-3 text-text-2 hover:bg-bg-5 hover:text-text-1 hover:border-border-l
+             disabled:opacity-40 disabled:cursor-not-allowed"
       :disabled="!hasSelection"
       title="Add keyframe (K)"
       @click="addKeyframe"
-    ><IconKeyframe /></IconButton>
+    >
+      Add Keyframe
+      <IconKeyframe class="flex-shrink-0" />
+    </button>
 
     <div class="w-px h-4 bg-border mx-1 flex-shrink-0" />
 

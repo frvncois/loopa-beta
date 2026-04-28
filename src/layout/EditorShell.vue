@@ -2,10 +2,10 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 import EditorTopbar from './EditorTopbar.vue'
 import ProjectSettingsModal from './ProjectSettingsModal.vue'
+import ExportModal from '@/features/export/ExportModal.vue'
 import ResizablePanel from '@/ui/ResizablePanel.vue'
 import PanelHeader from '@/ui/PanelHeader.vue'
 import ShortcutsModal from '@/ui/ShortcutsModal.vue'
-import Toolbar from '@/features/canvas/Toolbar.vue'
 import EditorCanvas from '@/features/canvas/EditorCanvas.vue'
 import LayersPanel from '@/features/layers/LayersPanel.vue'
 import PropertiesPanel from '@/features/properties/PropertiesPanel.vue'
@@ -39,7 +39,7 @@ onBeforeUnmount(() => shortcuts.unregister())
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-bg-0 overflow-hidden">
+  <div class="h-dvh flex flex-col bg-bg-0 overflow-hidden">
 
     <EditorTopbar />
 
@@ -74,29 +74,8 @@ onBeforeUnmount(() => shortcuts.unregister())
         </div>
       </ResizablePanel>
 
-      <!-- ── Center column: toolbar + canvas + timeline ─────────────── -->
-      <div class="flex-1 flex flex-col min-w-0 min-h-0">
-
-        <div class="flex items-center justify-center h-[34px] min-h-[34px] border-b border-border flex-shrink-0">
-          <Toolbar />
-        </div>
-
-        <EditorCanvas />
-
-        <ResizablePanel
-          side="bottom"
-          :default-size="180"
-          :min="120"
-          :max="380"
-          storage-key="loopa.panel.timeline"
-          class="bg-bg-2 border-t border-border"
-        >
-          <div class="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
-            <TimelinePanel />
-          </div>
-        </ResizablePanel>
-
-      </div>
+      <!-- ── Center column: canvas ──────────────────────────────────── -->
+      <EditorCanvas />
 
       <!-- ── Right panel: Properties ────────────────────────────────── -->
       <ResizablePanel
@@ -114,6 +93,21 @@ onBeforeUnmount(() => shortcuts.unregister())
       </ResizablePanel>
 
     </div>
+
+    <!-- ── Timeline: full width ───────────────────────────────────── -->
+    <ResizablePanel
+      side="bottom"
+      :default-size="180"
+      :min="120"
+      :max="380"
+      storage-key="loopa.panel.timeline"
+      class="bg-bg-2 border-t border-border"
+    >
+      <div class="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
+        <TimelinePanel />
+      </div>
+    </ResizablePanel>
+
   </div>
 
   <!-- Motion path confirmation modal -->
@@ -137,4 +131,7 @@ onBeforeUnmount(() => shortcuts.unregister())
 
   <!-- Project settings -->
   <ProjectSettingsModal :show="modals.showSettings.value" @close="modals.showSettings.value = false" />
+
+  <!-- Export -->
+  <ExportModal :show="modals.showExport.value" @close="modals.showExport.value = false" />
 </template>

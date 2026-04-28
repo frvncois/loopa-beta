@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import type { GroupElement } from '@/types/element'
-import ElementRenderer from './ElementRenderer.vue'
+// Async import breaks the ElementRenderer ↔ GroupElement circular dependency.
+// Vue resolves the component lazily at render time, after both modules have initialized.
+const ElementRenderer = defineAsyncComponent(() => import('./ElementRenderer.vue'))
 import ClipShapeRenderer from './ClipShapeRenderer.vue'
 
 const props = defineProps<{ element: GroupElement }>()

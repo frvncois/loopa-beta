@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
@@ -9,7 +9,6 @@ import TimelinePlayhead from './TimelinePlayhead.vue'
 import TimelineTrackList from './TimelineTrackList.vue'
 
 const LABEL_WIDTH = 160
-const PPF = 8        // pixels per frame
 const RULER_H = 24
 const TRACK_H = 26
 
@@ -17,8 +16,6 @@ const timeline  = useTimelineStore()
 const doc       = useDocumentStore()
 const selection = useSelectionStore()
 
-// Count elements with at least one track for generous height estimate.
-// The SVG can be taller than visible — the container scrolls.
 const animatedElementCount = computed(() => {
   const frameId = selection.activeFrameId
   if (!frameId) return 0
@@ -27,30 +24,49 @@ const animatedElementCount = computed(() => {
   return frame.elementIds.filter((id) => doc.tracksForElement(id).length > 0).length
 })
 
-const svgWidth  = computed(() => LABEL_WIDTH + timeline.totalFrames * PPF + 80)
-// Each element row can expand to ~8 group rows; use that as the upper bound
+// PPF fills the available width — frames always span the full ruler
+const ppf       = computed(() =>
+  containerWidth.value > LABEL_WIDTH
+    ? (containerWidth.value - LABEL_WIDTH) / timeline.totalFrames
+    : 8,
+)
+const svgWidth  = computed(() => containerWidth.value || LABEL_WIDTH + timeline.totalFrames * 8)
 const svgHeight = computed(() => RULER_H + Math.max(animatedElementCount.value * 9, 4) * TRACK_H)
-const playheadX = computed(() => LABEL_WIDTH + timeline.currentFrame * PPF)
+const playheadX = computed(() => LABEL_WIDTH + timeline.currentFrame * ppf.value)
+
+const scrollEl       = ref<HTMLDivElement | null>(null)
+const containerWidth = ref(0)
+let ro: ResizeObserver | null = null
+
+onMounted(() => {
+  if (!scrollEl.value) return
+  ro = new ResizeObserver(([entry]) => {
+    containerWidth.value = entry?.contentRect.width ?? 0
+  })
+  ro.observe(scrollEl.value)
+})
+onBeforeUnmount(() => ro?.disconnect())
 </script>
 
 <template>
   <div class="flex flex-col h-full">
     <TimelineControls />
     <!-- Scrollable SVG area -->
-    <div class="flex-1 overflow-auto min-h-0">
+    <div ref="scrollEl" class="flex-1 overflow-auto min-h-0">
       <svg
         :width="svgWidth"
         :height="svgHeight"
-        style="display: block; min-width: 100%"
+        style="display: block"
       >
         <TimelineRuler
           :total-frames="timeline.totalFrames"
-          :pixels-per-frame="PPF"
+          :pixels-per-frame="ppf"
           :label-width="LABEL_WIDTH"
           :height="RULER_H"
+          :total-width="svgWidth"
         />
         <TimelineTrackList
-          :pixels-per-frame="PPF"
+          :pixels-per-frame="ppf"
           :label-width="LABEL_WIDTH"
           :track-height="TRACK_H"
           :ruler-height="RULER_H"
