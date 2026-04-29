@@ -103,12 +103,14 @@ src/
 ├── types/
 │   ├── element.ts                       # Element, BaseElement, all variants, FillEntry, StrokeEntry, ShadowEntry
 │   ├── track.ts                         # Track, Keyframe, EasingType, PropertyPath
-│   ├── frame.ts                         # Frame
+│   ├── artboard.ts                      # Artboard, ArtboardNavigationTrigger
 │   ├── motion-path.ts                   # MotionPath
 │   ├── tool.ts                          # ToolType, ToolDefinition
 │   ├── project.ts                       # ProjectMeta, ProjectData
 │   ├── export.ts                        # ExportFormat, ExportJob, RenderedFrame, MediaLayer, PreflightReport, ...
 │   ├── geometry.ts                      # Bounds, Point, Rect
+│   ├── auth.ts                          # User, UserProfile, AuthStatus
+│   ├── cloud.ts                         # CloudProjectMeta, CloudProject, SaveStatus, DocumentLocation, OwnershipTransfer
 │   ├── shims/gifenc.d.ts                # Hand-written type shim for gifenc
 │   └── index.ts                         # barrel
 │
@@ -146,12 +148,17 @@ src/
 │
 ├── stores/
 │   ├── useDocumentStore.ts
+│   ├── documentDuplicateActions.ts      # factory functions imported by useDocumentStore (not Pinia stores)
+│   ├── documentMaskActions.ts
+│   ├── documentTrackActions.ts
 │   ├── useSelectionStore.ts
 │   ├── useViewportStore.ts
 │   ├── useToolStore.ts
 │   ├── useTimelineStore.ts
 │   ├── useHistoryStore.ts
-│   └── useClipboardStore.ts
+│   ├── useClipboardStore.ts
+│   ├── useExportStore.ts
+│   └── useAuthStore.ts
 │
 ├── composables/
 │   ├── useAnimatedElement.ts            # current-frame element with track values applied
@@ -210,22 +217,20 @@ src/
 │   ├── pen/
 │   │   ├── PenTool.ts
 │   │   └── PenOverlay.vue
-│   ├── path-edit/
-│   │   ├── PathEditTool.ts
-│   │   └── PathPointHandles.vue
-│   └── motion-path/
-│       ├── MotionPathTool.ts
-│       └── MotionPathOverlay.vue
+│   └── path-edit/
+│       ├── PathEditTool.ts
+│       └── motion-path/
+│           └── MotionPathTool.ts        # motion-path tool is nested under path-edit/
 │
 ├── features/
 │   ├── canvas/
 │   │   ├── EditorCanvas.vue              # ~150 lines: orchestrates layers + dispatch
-│   │   ├── CanvasFramesLayer.vue         # frame backgrounds + outlines + labels
-│   │   ├── CanvasElementsLayer.vue       # iterates elements, renders ElementRenderer
-│   │   ├── CanvasOverlaysLayer.vue       # tool overlays slot, marquee, draw preview
-│   │   ├── CanvasRulers.vue
-│   │   ├── CanvasGuides.vue
-│   │   ├── ElementRenderer.vue           # type-dispatch to shape components
+│   │   ├── layers/
+│   │   │   ├── CanvasArtboardsLayer.vue  # artboard backgrounds + outlines + labels
+│   │   │   ├── OverlayLayer.vue          # tool overlays slot, marquee, draw preview
+│   │   │   └── SelectionLayer.vue
+│   │   ├── renderers/
+│   │   │   └── ElementRenderer.vue       # type-dispatch to shape components
 │   │   ├── shapes/
 │   │   │   ├── RectShape.vue
 │   │   │   ├── EllipseShape.vue
@@ -245,10 +250,8 @@ src/
 │   │
 │   ├── layers/
 │   │   ├── LayersPanel.vue
-│   │   ├── FrameRow.vue
-│   │   ├── ElementRow.vue
-│   │   ├── GroupRow.vue                  # collapsible
-│   │   └── composables/useLayerTree.ts
+│   │   ├── ArtboardRow.vue
+│   │   └── ElementRow.vue
 │   │
 │   ├── properties/
 │   │   ├── PropertiesPanel.vue           # composes sections based on selection
@@ -265,11 +268,8 @@ src/
 │   │       ├── ImageSection.vue
 │   │       ├── VideoSection.vue
 │   │       ├── MaskSection.vue
-│   │       ├── ComponentSection.vue
 │   │       ├── MotionPathSection.vue
-│   │       ├── PlaybackSection.vue
-│   │       ├── FrameSettingsSection.vue
-│   │       └── GridSnapSection.vue
+│   │       └── ArtboardSettingsSection.vue
 │   │
 │   ├── timeline/
 │   │   ├── TimelinePanel.vue
@@ -281,11 +281,10 @@ src/
 │   │   ├── TimelineKeyframe.vue
 │   │   └── composables/useTimelineDrag.ts
 │   │
-│   ├── frames/
-│   │   └── composables/useFrames.ts
-│   │
-│   ├── masks/
-│   │   └── (mask logic lives in documentMaskActions.ts + GroupElement.vue)
+│   ├── editor/
+│   │   ├── SaveButton.vue               # shown when anonymous-local and dirty
+│   │   ├── SaveStatusIndicator.vue      # cloud save status display
+│   │   └── ConflictModal.vue            # concurrent-edit conflict resolution
 │   │
 │   ├── motion-paths/
 │   │   └── MotionPathOverlay.vue
@@ -297,17 +296,25 @@ src/
 │   │   ├── ExportProgress.vue
 │   │   └── options/  LottieOptions, PngOptions, GifOptions, Mp4Options, WebmOptions
 │   │
-│   └── landing/
-│       └── (marketing landing page — LandingView route at '/')
+│   ├── landing/
+│   │   └── (marketing landing page — LandingView route at '/')
+│   ├── auth/  dashboard/  account/  onboarding/  upgrade/  # cloud/auth features (see SUPABASE.md)
 │
 ├── layout/
 │   ├── EditorShell.vue                   # CSS grid: topbar / left / center / right / bottom
 │   └── EditorTopbar.vue
 │
 ├── views/
-│   └── EditorView.vue                    # the only view in v2
+│   ├── EditorView.vue
+│   ├── DashboardView.vue
+│   ├── LoginView.vue
+│   ├── AccountView.vue
+│   ├── AuthCallbackView.vue
+│   ├── PasswordResetView.vue
+│   ├── LandingView.vue
+│   └── TrashView.vue
 │
-└── router/index.ts                       # '/' → LandingView, '/app' → EditorView
+└── router/index.ts                       # '/' → Landing, '/app' → Editor, '/dashboard' → Dashboard, '/login' → Login, etc.
 ```
 
 ---
@@ -516,18 +523,18 @@ export interface Track {
 }
 ```
 
-### `types/frame.ts`
+### `types/artboard.ts`
 
 ```ts
-export type FrameNavigationTrigger = 'on-complete' | 'on-click'
+export type ArtboardNavigationTrigger = 'on-complete' | 'on-click'
 
-export interface Frame {
+export interface Artboard {
   id: string
   name: string
   width: number
   height: number
   backgroundColor: string
-  elementIds: string[]            // top-level element IDs in this frame
+  elementIds: string[]            // top-level element IDs in this artboard
   order: number
   fps: number
   totalFrames: number
@@ -543,7 +550,7 @@ export interface Frame {
 ```ts
 import type { Element } from './element'
 import type { Track } from './track'
-import type { Frame } from './frame'
+import type { Artboard } from './artboard'
 import type { MotionPath } from './motion-path'
 
 export interface ProjectMeta {
@@ -556,7 +563,7 @@ export interface ProjectMeta {
 
 export interface ProjectData {
   meta: ProjectMeta
-  frames: Frame[]
+  artboards: Artboard[]
   elements: Element[]             // ALL elements, flat
   tracks: Track[]                 // ALL tracks, flat
   motionPaths: MotionPath[]
@@ -760,45 +767,44 @@ The persisted document. Mutations only.
 interface DocumentState {
   projectId: string | null
   meta: ProjectMeta | null
-  frames: Frame[]
+  artboards: Artboard[]
   elements: Element[]
   tracks: Track[]
-  components: ComponentDef[]
   motionPaths: MotionPath[]
 }
 
 // Getters
 elementById(id): Element | undefined
 elementsByIds(ids): Element[]
-frameById(id): Frame | undefined
+artboardById(id): Artboard | undefined
 tracksForElement(elementId): Track[]
 trackForProperty(elementId, property): Track | undefined
-elementsForFrame(frameId): Element[]                   // by frame.elementIds
-topLevelElementsForFrame(frameId): Element[]          // excludes group children
+elementsForArtboard(artboardId): Element[]             // by artboard.elementIds
+topLevelElementsForArtboard(artboardId): Element[]    // excludes group children
 childToGroupMap: Map<string, string>                   // computed
-elementToFrameMap: Map<string, string>                 // computed
+elementToArtboardMap: Map<string, string>              // computed
 
 // Actions — Project
 loadProject(data: ProjectData): void
 clearProject(): void
 serialize(): ProjectData
 
-// Actions — Frame
-addFrame(name?, width?, height?): string               // returns id
-updateFrame(id, updates: Partial<Frame>): void
-deleteFrame(id): void
-duplicateFrame(id): string
-reorderFrame(id, newIndex): void
+// Actions — Artboard
+addArtboard(name?, width?, height?): string            // returns id
+updateArtboard(id, updates: Partial<Artboard>): void
+deleteArtboard(id): void
+duplicateArtboard(id): string
+reorderArtboard(id, newIndex): void
 
 // Actions — Element
-addElement(element: Element, frameId: string): void
+addElement(element: Element, artboardId: string): void
 updateElement(id, updates: Partial<Element>): void
 deleteElements(ids: string[]): void                    // cascades: tracks, motion paths, group children
 reorderElement(id, newIndex): void
 duplicateElements(ids): string[]                       // returns new ids; copies tracks too
 groupElements(ids): string | null
 ungroupElements(groupId): string[]
-moveElementsToFrame(ids, frameId): void
+moveElementsToArtboard(ids, artboardId): void
 
 // Actions — Track
 addTrack(track: Track): void                           // dedup by (elementId, property)
@@ -809,20 +815,13 @@ deleteKeyframe(trackId, keyframeId): void              // deletes track if empty
 deleteTracksForElement(elementId): void
 setTrackEnabled(trackId, enabled): void
 
-// Actions — Component
-createComponent(elementIds): string | null
-placeComponentInstance(componentId, frameId, x?, y?): string[]
-detachInstance(elementId): void
-renameComponent(componentId, name): void
-deleteComponent(componentId): void
-
 // Actions — MotionPath
 addMotionPath(mp: MotionPath): void                    // one per element; replace if exists
 updateMotionPath(id, updates): void
 deleteMotionPath(id): void
 ```
 
-**Important**: `updateElement(id, { x: ... })` for a group MUST propagate the delta to its children (port the v1 logic). Style propagation across component instances when `shareStyle` is true also stays.
+**Important**: `updateElement(id, { x: ... })` for a group MUST propagate the delta to its children (port the v1 logic).
 
 ### `useSelectionStore`
 
@@ -831,7 +830,7 @@ interface SelectionState {
   selectedIds: Set<string>
   selectedKeyframeIds: Set<string>
   hoveredId: string | null
-  activeFrameId: string | null
+  activeArtboardId: string | null
   activeGroupId: string | null              // when "entered" a group
   editingPathId: string | null
   pathEditMode: boolean
@@ -846,7 +845,7 @@ clearSelection(): void
 selectKeyframe(id, multi?): void
 clearKeyframeSelection(): void
 setHovered(id | null): void
-setActiveFrame(frameId): void               // also clears selection
+setActiveArtboard(artboardId): void         // also clears selection
 enterGroup(groupId): void
 exitGroup(): void
 enterPathEditMode(pathId): void
@@ -930,7 +929,7 @@ setFps(fps): void
 setTotalFrames(n): void
 setLoop(b): void
 setDirection(d): void
-syncFromFrame(frame: Frame): void           // call when activeFrame changes
+syncFromArtboard(artboard: Artboard): void  // call when activeArtboard changes
 ```
 
 Playback uses `requestAnimationFrame` with elapsed-time math; do not increment by 1 per frame.
@@ -988,7 +987,7 @@ hasPasteData: boolean
 
 // Actions
 copy(elementIds: string[]): void
-paste(targetFrameId: string): { elementIds: string[]; trackIds: string[] }
+paste(targetArtboardId: string): { elementIds: string[]; trackIds: string[] }
                                             // new IDs, position offset +20 if same project
 clear(): void
 ```
@@ -1286,7 +1285,7 @@ const rectTool: ToolController = {
     history.beginTransaction('Draw rectangle')
     const el = createDefaultElement('rect') as RectElement
     el.x = pos.x; el.y = pos.y; el.width = 1; el.height = 1
-    doc.addElement(el, sel.activeFrameId!)
+    doc.addElement(el, sel.activeArtboardId!)
     createdId = el.id
     sel.select(el.id)
   },
@@ -1343,11 +1342,9 @@ import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useCanvasViewport } from './composables/useCanvasViewport'
 import { useCanvasInteractions } from './composables/useCanvasInteractions'
-import CanvasFramesLayer from './CanvasFramesLayer.vue'
-import CanvasElementsLayer from './CanvasElementsLayer.vue'
-import CanvasOverlaysLayer from './CanvasOverlaysLayer.vue'
-import CanvasRulers from './CanvasRulers.vue'
-import CanvasGuides from './CanvasGuides.vue'
+import CanvasArtboardsLayer from './layers/CanvasArtboardsLayer.vue'
+import OverlayLayer from './layers/OverlayLayer.vue'
+import SelectionLayer from './layers/SelectionLayer.vue'
 
 const viewportEl = useTemplateRef('viewportEl')
 const viewport = useCanvasViewport(viewportEl)
@@ -1357,7 +1354,6 @@ const view = useViewportStore()
 
 <template>
   <div class="relative h-full w-full overflow-hidden bg-bg-1" @wheel.prevent="viewport.onWheel">
-    <CanvasRulers v-if="view.showRulers" :viewport="viewport" />
     <div
       ref="viewportEl"
       class="absolute inset-0"
@@ -1373,10 +1369,9 @@ const view = useViewportStore()
         xmlns="http://www.w3.org/2000/svg"
         class="absolute inset-0 h-full w-full"
       >
-        <CanvasFramesLayer />
-        <CanvasElementsLayer />
-        <CanvasOverlaysLayer />
-        <CanvasGuides v-if="view.showGuides" :viewport="viewport" />
+        <CanvasArtboardsLayer />
+        <OverlayLayer />
+        <SelectionLayer />
       </svg>
     </div>
   </div>
@@ -1478,16 +1473,13 @@ const type = computed(() => element.value?.type)
         <ImageSection v-if="type === 'image'" :id="selectedId!" />
         <VideoSection v-if="type === 'video'" :id="selectedId!" />
         <MaskSection v-if="type === 'group'" :id="selectedId!" />
-        <ComponentSection v-if="element.componentId" :id="selectedId!" />
         <MotionPathSection :id="selectedId!" />
       </template>
       <template v-else-if="isMulti">
         <!-- alignment, multi-edit -->
       </template>
       <template v-else>
-        <PlaybackSection />
-        <FrameSettingsSection />
-        <GridSnapSection />
+        <ArtboardSettingsSection />
       </template>
     </div>
   </div>
@@ -1622,7 +1614,7 @@ history.redo()    // element returns
 ### Phase 7 — Layers + Properties (static, no animation) ✅
 
 **Tasks**
-- `LayersPanel.vue` with `FrameRow`, `ElementRow`, `GroupRow`. Single hardcoded frame is fine for now.
+- `LayersPanel.vue` with `ArtboardRow`, `ElementRow`. Single hardcoded artboard is fine for now.
 - All properties sections except `MotionPathSection`:
   - PositionSection, TransformSection, FillSection, StrokeSection, ShadowSection, BlurSection, OpacitySection
   - TextSection (when text), PathSection (when path), MaskSection (when group)
@@ -1646,16 +1638,16 @@ history.redo()    // element returns
 
 ---
 
-### Phase 9 — Frames system ✅
+### Phase 9 — Artboards system ✅
 
 **Tasks**
-- Multiple frames on infinite canvas, positioned at `frame.canvasX/Y`
-- Frame switching from layers panel; click an inactive frame in the canvas activates it
-- Frame settings section (width, height, fps, totalFrames, loop, direction, background color)
-- Active frame outline accent; inactive frames dimmed via SVG mask
-- Per-frame timeline sync (`useTimelineStore.syncFromFrame`)
+- Multiple artboards on infinite canvas, positioned at `artboard.canvasX/Y`
+- Artboard switching from layers panel; click an inactive artboard in the canvas activates it
+- Artboard settings section (width, height, fps, totalFrames, loop, direction, background color)
+- Active artboard outline accent; inactive artboards dimmed via SVG mask
+- Per-artboard timeline sync (`useTimelineStore.syncFromArtboard`)
 
-**Done when**: you can create multiple frames, switch between them, each with its own animation playback.
+**Done when**: you can create multiple artboards, switch between them, each with its own animation playback.
 
 ### Phase 10 — Pen tool + path editing ✅
 

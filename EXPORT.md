@@ -138,8 +138,6 @@ Add `_showExport = ref(false)` to `useEditorModals.ts` and expose `showExport`.
 Place in `src/types/export.ts`. Pure types — no value imports.
 
 ```ts
-import type { Frame } from './frame'
-
 // ── Format identity ──────────────────────────────────────────────────────────
 
 export type ExportFormat = 'lottie' | 'png-sequence' | 'gif' | 'mp4' | 'webm'
@@ -217,7 +215,7 @@ export interface ExportJob {
   id: string
   format: ExportFormat
   options: ExportOptions
-  frameId: string                   // Which document frame is being exported
+  artboardId: string                // Which artboard is being exported
   status: ExportJobStatus
   preflight: PreflightReport | null
   progress: number                  // 0..1
@@ -325,11 +323,11 @@ Bar: 6px tall, `bg-bg-3` track, `bg-accent` fill. Frame counter in `font-mono te
 - Added `src/types/export.ts` with all definitions from §3.
 - Added `useExportStore`:
   - State: `currentJob: ExportJob | null`
-  - Actions: `startJob(format, options, frameId)`, `setPreflight(report)`, `setStatus(status)`, `setProgress(currentFrame, totalFrames)`, `setResult(blob, fileName)`, `setError(msg)`, `cancel()`, `reset()`
+  - Actions: `startJob(format, options, artboardId)`, `setPreflight(report)`, `setStatus(status)`, `setProgress(currentFrame, totalFrames)`, `setResult(blob, fileName)`, `setError(msg)`, `cancel()`, `reset()`
   - This store does NOT actually run exports — it tracks state. The `useExport` composable orchestrates.
 - Added `composables/useExport.ts`:
-  - Returns `{ job, openExport, changeFormat, changeOptions, changeFrame, runExport, downloadResult, cancelExport, closeExport }`
-  - `openExport()` defaults to `selection.activeFrameId`; wires directly to real export logic (stub phase was skipped — E1–E5 shipped together)
+  - Returns `{ job, openExport, changeFormat, changeOptions, changeArtboard, runExport, downloadResult, cancelExport, closeExport }`
+  - `openExport()` defaults to `selection.activeArtboardId`; wires directly to real export logic (stub phase was skipped — E1–E5 shipped together)
   - `downloadResult()` uses standard `URL.createObjectURL` + anchor click pattern
 - Added `_showExport` to `useEditorModals.ts`, exposed as `showExport`.
 - Added Export button to `EditorTopbar.vue` (right side, before Settings).
@@ -340,9 +338,9 @@ Bar: 6px tall, `bg-bg-3` track, `bg-accent` fill. Frame counter in `font-mono te
 
 When user changes format, immediately calls that format's `preflight()` and updates the job's preflight. Issues surface live without requiring an extra button click.
 
-### Frame selection
+### Artboard selection
 
-Defaults to `selection.activeFrameId`. If the project has multiple frames, shows a `Select` above the format picker labeled "Frame". Hidden when the project has only one frame.
+Defaults to `selection.activeArtboardId`. If the project has multiple artboards, shows a `Select` above the format picker labeled "Artboard". Hidden when the project has only one artboard.
 
 ### Done when ✅
 
@@ -574,11 +572,11 @@ This is the lookup table for Phase E2. The Lottie schema reference is `lottie-we
 ```ts
 {
   v: '5.7.0',                       // Schema version
-  fr: frame.fps,
+  fr: artboard.fps,
   ip: 0,                            // In-point
-  op: frame.totalFrames,            // Out-point
-  w: frame.width,
-  h: frame.height,
+  op: artboard.totalFrames,         // Out-point
+  w: artboard.width,
+  h: artboard.height,
   nm: project.meta.name,
   ddd: 0,                           // Not 3D
   assets: [],                       // Image assets here

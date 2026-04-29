@@ -41,6 +41,10 @@ export function useCanvasInteractions(getFrameId: () => string) {
     return useSelectionStore().pathEditMode
   }
 
+  function isShapeEditMode(): boolean {
+    return toolStore.currentTool === 'shape-edit'
+  }
+
   function onPointerDown(e: PointerEvent): void {
     if (e.button === 1 || toolStore.currentTool === 'hand') {
       e.preventDefault()
@@ -69,7 +73,13 @@ export function useCanvasInteractions(getFrameId: () => string) {
       return
     }
 
-    // Double-click on a path while select tool is active → enter path-edit mode
+    // Shape-edit mode: route all events to ShapeEditTool
+    if (isShapeEditMode()) {
+      getToolController('shape-edit')?.onPointerDown?.(e, makeCtx(e))
+      return
+    }
+
+    // Double-click on a path/rect while select tool is active → enter edit mode
     if (isDouble && toolStore.currentTool === 'select') {
       const elementEl  = (e.target as SVGElement).closest('[data-element-id]')
       const elementId  = elementEl?.getAttribute('data-element-id') ?? null
@@ -77,6 +87,12 @@ export function useCanvasInteractions(getFrameId: () => string) {
         const el = useDocumentStore().elementById(elementId)
         if (el?.type === 'path') {
           useSelectionStore().enterPathEditMode(elementId)
+          e.stopPropagation()
+          return
+        }
+        if (el?.type === 'rect' && !el.locked && el.visible) {
+          useSelectionStore().select(elementId)
+          toolStore.setTool('shape-edit')
           e.stopPropagation()
           return
         }
@@ -98,6 +114,10 @@ export function useCanvasInteractions(getFrameId: () => string) {
       getToolController('path-edit')?.onPointerMove?.(e, makeCtx(e))
       return
     }
+    if (isShapeEditMode()) {
+      getToolController('shape-edit')?.onPointerMove?.(e, makeCtx(e))
+      return
+    }
     if (DRAW_TOOLS.has(toolStore.currentTool)) {
       dispatcher.dispatch('pointermove', e, makeCtx(e))
     }
@@ -111,6 +131,10 @@ export function useCanvasInteractions(getFrameId: () => string) {
     }
     if (isPathEditMode()) {
       getToolController('path-edit')?.onPointerUp?.(e, makeCtx(e))
+      return
+    }
+    if (isShapeEditMode()) {
+      getToolController('shape-edit')?.onPointerUp?.(e, makeCtx(e))
       return
     }
     dispatcher.dispatch('pointerup', e, makeCtx(e))
@@ -130,6 +154,10 @@ export function useCanvasInteractions(getFrameId: () => string) {
     const ctx = keyCtx()
     if (isPathEditMode()) {
       getToolController('path-edit')?.onKeyDown?.(e, ctx)
+      return
+    }
+    if (isShapeEditMode()) {
+      getToolController('shape-edit')?.onKeyDown?.(e, ctx)
       return
     }
     dispatcher.dispatchKeyDown(e, ctx)

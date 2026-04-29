@@ -28,10 +28,11 @@ pnpm format         # prettier
 ## Tech Stack
 
 - **Vue 3.5** with `<script setup lang="ts">` — mandatory on every component
-- **TypeScript ~5.6**, strict mode
-- **Vite 5+** — path alias `@/` → `./src/`
-- **Pinia 2.2+** — composition-style stores (`defineStore('id', () => {...})`)
-- **Vue Router 4.4+**
+- **TypeScript ~6.0**, strict mode
+- **Vite 8+** — path alias `@/` → `./src/`
+- **Pinia 3+** — composition-style stores (`defineStore('id', () => {...})`)
+- **Vue Router 5+**
+- **vue-tsc ^3.2** (type-check)
 - **Tailwind v4** — CSS-first config via `@theme`. NO `tailwind.config.ts`.
 - **No component libraries.** All UI primitives are hand-built.
 - **No icon libraries.** Inline SVG components in `src/ui/icons/`.
@@ -89,7 +90,7 @@ src/
 │   ├── export/                 # lottie/, render/, raster/, imageData.ts
 │   └── utils/
 │
-├── stores/                     # Pinia stores (8 total)
+├── stores/                     # Pinia stores (9 total)
 ├── composables/                # Cross-cutting reactive helpers
 │
 ├── ui/                         # Design-system primitives (Tailwind)
@@ -99,14 +100,15 @@ src/
 ├── tools/                      # One folder per tool (self-contained)
 │   ├── _base/                  # ToolDispatcher, registry, types
 │   ├── select/  hand/  rect/  ellipse/  line/  polygon/  star/
-│   ├── text/  pen/  path-edit/  motion-path/
+│   ├── text/  pen/  path-edit/          # motion-path tool lives inside path-edit/motion-path/
 │
 ├── features/                   # High-level UI features
 │   ├── canvas/  layers/  properties/  timeline/
-│   ├── frames/  masks/  motion-paths/  export/  landing/
+│   ├── motion-paths/  export/  landing/
+│   ├── auth/  editor/  dashboard/  account/  onboarding/  upgrade/
 │
 ├── layout/                     # EditorShell, EditorTopbar
-├── views/                      # EditorView
+├── views/                      # EditorView, DashboardView, LoginView, AccountView, etc.
 └── router/index.ts
 ```
 
@@ -123,8 +125,8 @@ Nine stores, each with one job. NEVER add to a store outside its responsibility.
 
 | Store | Owns |
 |-------|------|
-| `useDocumentStore` | The persisted document: frames, elements, tracks, masks, motionPaths. Mutations only. No UI state. |
-| `useSelectionStore` | `selectedIds`, `activeFrameId`, `activeGroupId`, `editingPathId`, hover state |
+| `useDocumentStore` | The persisted document: artboards, elements, tracks, motionPaths. Mutations only. No UI state. |
+| `useSelectionStore` | `selectedIds`, `activeArtboardId`, `activeGroupId`, `editingPathId`, hover state |
 | `useViewportStore` | zoom, pan, grid, snap, rulers, guides |
 | `useToolStore` | `currentTool`, tool-specific options |
 | `useTimelineStore` | `currentFrame`, `isPlaying`, fps, totalFrames, loop, direction |
@@ -134,6 +136,8 @@ Nine stores, each with one job. NEVER add to a store outside its responsibility.
 | `useAuthStore` | Supabase session: `user`, `profile` (plan, storage), `status` (loading / anonymous / authenticated). `signIn`, `signOut`, `refresh`. Initialized before router mounts. |
 
 Stores are imported where needed. Don't pass them through props.
+
+Three sibling action modules — `documentDuplicateActions.ts`, `documentMaskActions.ts`, `documentTrackActions.ts` — export factory functions consumed only by `useDocumentStore` to keep that store under its size budget. They are not Pinia stores; they're internal.
 
 ---
 
@@ -318,6 +322,7 @@ If you're tempted to add any of these, stop:
 - `lib/` folder (it's `core/` now)
 - `editorStore` (it's split into stores)
 - `useAnimatedEditing` (per-property tracks make it unnecessary)
+- Components system — Phase 11 was built and reverted. No `componentId`, `shareStyle`, `shareAnimation` on elements. `schemaVersion` is at 3 after removal. See REBUILD.md Phase 11 note.
 
 ---
 

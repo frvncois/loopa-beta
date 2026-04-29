@@ -71,6 +71,8 @@ A user can: visit loopa.app, try the editor anonymously, sign up with email + pa
 
 ## 2. Architecture decisions
 
+> ⚠️ STATUS UNCLEAR — `RemoteMediaRepo.ts` exists at `src/core/persistence/RemoteMediaRepo.ts` but has no known importers as of the last code audit. It is unclear whether cloud media upload via Supabase Storage is complete, partially implemented, or cut. The `IDBMediaRepo` is the only media impl in active use. Do not assume `RemoteMediaRepo` works without investigation.
+
 ### Repository pattern, extended
 
 Today: `LocalProjectRepo` (localStorage) and `IDBMediaRepo` (IndexedDB). New impls under the same interfaces:
@@ -175,7 +177,7 @@ create table projects (
   slug          text not null unique,              -- 8-char nanoid
   owner_id      uuid not null references profiles(id) on delete cascade,
   name          text not null default 'Untitled',
-  data          jsonb not null,                    -- ProjectData (frames, elements, tracks, motionPaths, schemaVersion)
+  data          jsonb not null,                    -- ProjectData (artboards, elements, tracks, motionPaths, schemaVersion)
   thumbnail_url text,                              -- Supabase Storage URL
   version       integer not null default 1,        -- optimistic concurrency
   storage_used_bytes bigint not null default 0,    -- size of associated media for this project
@@ -388,7 +390,7 @@ export interface OwnershipTransfer {
 |-----------------------|-----------------|------------------|--------------------------------------|
 | Active projects       | 3               | unlimited        | `create_project` SQL function       |
 | Storage               | 1 GB            | 10 GB            | `check_media_quota` SQL function    |
-| Frames per project    | unlimited       | unlimited        | n/a                                  |
+| Artboards per project | unlimited       | unlimited        | n/a                                  |
 | Project size (JSON)   | 5 MB            | 50 MB            | `update_project` SQL function       |
 | Version snapshots     | 10 most recent  | 10 most recent   | `prune_old_versions` trigger        |
 
@@ -799,6 +801,8 @@ May modify:
 - `src/views/DashboardView.vue` (add `IncomingTransfersBanner` at top)
 
 Do NOT touch: any other file.
+
+> ⚠️ STATUS UNCLEAR — `RemoteProjectRepo.transferOwnership` exists but throws `'transferOwnership not yet implemented — see Phase S9'`. Meanwhile `composables/useOwnershipTransfers.ts` makes its own direct `supabase.from(...)` calls rather than going through the repo method. It is unclear whether the repo method or the composable path is canonical, or whether this phase is fully implemented.
 
 ### Tasks
 

@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import type { RectElement } from '@/types/element'
-defineProps<{ element: RectElement }>()
+import { useSelectionStore } from '@/stores/useSelectionStore'
+import { useToolStore } from '@/stores/useToolStore'
+
+const props = defineProps<{ element: RectElement }>()
+const sel      = useSelectionStore()
+const toolStore = useToolStore()
+
+function onDblClick(): void {
+  if (props.element.locked || !props.element.visible) return
+  if (toolStore.currentTool !== 'select') return
+  sel.select(props.element.id)
+  toolStore.setTool('shape-edit')
+}
 </script>
 
 <template>
@@ -18,5 +30,6 @@ defineProps<{ element: RectElement }>()
     :stroke="element.strokes[0]?.visible ? '#' + element.strokes[0].color : 'none'"
     :stroke-width="element.strokes[0]?.width ?? 0"
     :opacity="element.opacity"
+    @dblclick.stop="onDblClick"
   />
 </template>

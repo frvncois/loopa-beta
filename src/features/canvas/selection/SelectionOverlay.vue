@@ -2,11 +2,22 @@
 import { computed } from 'vue'
 import { useAnimatedElement } from '@/composables/useAnimatedElement'
 import { useElementTransform } from '@/composables/useElementTransform'
+import { useSelectionStore } from '@/stores/useSelectionStore'
+import { useToolStore } from '@/stores/useToolStore'
 
 const props = defineProps<{ elementId: string }>()
 
 const t        = useElementTransform()
 const animated = useAnimatedElement(() => props.elementId)
+const sel      = useSelectionStore()
+const toolStore = useToolStore()
+
+function onDblClick(): void {
+  const el = animated.value
+  if (el?.type !== 'rect' || el.locked || !el.visible) return
+  if (sel.selectedIds.length !== 1) return
+  toolStore.setTool('shape-edit')
+}
 
 // Selection box in element's local unrotated space; rotation applied via <g>
 const b = computed(() => {
@@ -57,6 +68,7 @@ const rotHandleY = computed(() => b.value.y - 24)
       @pointerdown="t.startDrag($event, [elementId])"
       @pointermove="t.onPointerMove"
       @pointerup="t.onPointerUp"
+      @dblclick.stop="onDblClick"
     />
 
     <!-- Resize handles -->

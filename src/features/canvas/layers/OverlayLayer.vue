@@ -3,6 +3,7 @@ import { useDrawPreview } from '@/features/canvas/composables/useDrawPreview'
 import MarqueeOverlay from '@/features/canvas/selection/MarqueeOverlay.vue'
 import PenOverlay from '@/features/canvas/selection/PenOverlay.vue'
 import PathPointHandles from '@/features/canvas/selection/PathPointHandles.vue'
+import RectCornerHandles from '@/features/canvas/selection/RectCornerHandles.vue'
 import MotionPathOverlay from '@/features/motion-paths/MotionPathOverlay.vue'
 
 const { preview } = useDrawPreview()
@@ -27,6 +28,9 @@ const { preview } = useDrawPreview()
 
   <!-- Path edit mode: anchor & handle controls -->
   <PathPointHandles />
+
+  <!-- Shape edit mode: corner radius handles -->
+  <RectCornerHandles />
 
   <MarqueeOverlay />
 
