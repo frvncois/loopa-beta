@@ -4,6 +4,7 @@ import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
 import { useClipboardStore } from '@/stores/useClipboardStore'
 import { useViewportStore } from '@/stores/useViewportStore'
+import { useKeyframeSelection } from './useKeyframeSelection'
 import { useEditorModals } from './useEditorModals'
 import { useCanvasViewport } from '@/features/canvas/composables/useCanvasViewport'
 import type { ToolType } from '@/types/tool'
@@ -38,10 +39,10 @@ export function useShortcuts() {
   const clipboard = useClipboardStore()
   const viewport  = useViewportStore()
   const modals    = useEditorModals()
-  const { fitActiveFrame } = useCanvasViewport()
+  const { fitActiveArtboard } = useCanvasViewport()
 
-  function activeFrameId(): string {
-    return selection.activeFrameId ?? ''
+  function activeArtboardId(): string {
+    return selection.activeArtboardId ?? ''
   }
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -151,7 +152,7 @@ export function useShortcuts() {
       e.preventDefault()
       if (!clipboard.hasPasteData) return
       history.transact('Paste', () => {
-        const { elementIds } = clipboard.paste(activeFrameId())
+        const { elementIds } = clipboard.paste(activeArtboardId())
         selection.selectMany(elementIds)
       })
       return
@@ -174,8 +175,25 @@ export function useShortcuts() {
       return
     }
 
-    // Delete / Backspace
+    // Delete / Backspace — keyframes take priority over elements
     if (e.key === 'Delete' || e.key === 'Backspace') {
+      const kfSel  = useKeyframeSelection()
+      const kfIds  = [...kfSel.selectedIds.value]
+      if (kfIds.length > 0) {
+        const kfIdSet = new Set(kfIds)
+        history.transact('Delete keyframes', () => {
+          const toDelete: Array<{ trackId: string; kfId: string }> = []
+          for (const track of doc.tracks) {
+            for (const kf of track.keyframes) {
+              if (kfIdSet.has(kf.id)) toDelete.push({ trackId: track.id, kfId: kf.id })
+            }
+          }
+          for (const { trackId, kfId } of toDelete) doc.deleteKeyframe(trackId, kfId)
+          kfSel.clear()
+        })
+        e.preventDefault()
+        return
+      }
       const ids = [...selection.selectedIds]
       if (ids.length === 0) return
       history.transact('Delete', () => {
@@ -200,8 +218,8 @@ export function useShortcuts() {
     // Fit to view
     if (meta && e.key === '1') {
       e.preventDefault()
-      const frame = doc.frames.find((f) => f.id === activeFrameId())
-      if (frame) fitActiveFrame(frame.width, frame.height)
+      const artboard = doc.artboards.find((a) => a.id === activeArtboardId())
+      if (artboard) fitActiveArtboard(artboard.width, artboard.height)
       return
     }
 

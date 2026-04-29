@@ -54,8 +54,8 @@ const SelectTool: ToolController = {
 
     const doc = useDocumentStore()
     const selection = useSelectionStore()
-    const frameElements = selection.activeFrameId
-      ? doc.elementsForFrame(selection.activeFrameId)
+    const frameElements = selection.activeArtboardId
+      ? doc.elementsForArtboard(selection.activeArtboardId)
       : []
 
     const hit = frameElements.filter((el) => {
@@ -80,9 +80,9 @@ const SelectTool: ToolController = {
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
       e.preventDefault()
-      const frameId = selection.activeFrameId
+      const frameId = selection.activeArtboardId
       if (!frameId) return
-      const ids = doc.elementsForFrame(frameId).map((el) => el.id)
+      const ids = doc.elementsForArtboard(frameId).map((el) => el.id)
       selection.selectMany(ids)
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'd') {

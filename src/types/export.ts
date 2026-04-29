@@ -75,7 +75,7 @@ export interface ExportJob {
   id: string
   format: ExportFormat
   options: ExportOptions
-  frameId: string
+  artboardId: string
   status: ExportJobStatus
   preflight: PreflightReport | null
   progress: number                  // 0..1

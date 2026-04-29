@@ -31,17 +31,17 @@ const TOOLS: { id: ToolType; icon: unknown; shortcut: string; title: string }[] 
 const imageInputRef = ref<HTMLInputElement | null>(null)
 const videoInputRef = ref<HTMLInputElement | null>(null)
 
-function activeFrameId(): string {
-  return selection.activeFrameId ?? ''
+function activeArtboardId(): string {
+  return selection.activeArtboardId ?? ''
 }
 
 async function onImageFiles(e: Event): Promise<void> {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
-  const frameId = activeFrameId()
-  if (!frameId) return
+  const artboardId = activeArtboardId()
+  if (!artboardId) return
   for (const file of Array.from(files)) {
-    await addImageFile(file, frameId)
+    await addImageFile(file, artboardId)
   }
   if (imageInputRef.value) imageInputRef.value.value = ''
 }
@@ -49,10 +49,10 @@ async function onImageFiles(e: Event): Promise<void> {
 async function onVideoFiles(e: Event): Promise<void> {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
-  const frameId = activeFrameId()
-  if (!frameId) return
+  const artboardId = activeArtboardId()
+  if (!artboardId) return
   for (const file of Array.from(files)) {
-    await addVideoFile(file, frameId)
+    await addVideoFile(file, artboardId)
   }
   if (videoInputRef.value) videoInputRef.value.value = ''
 }

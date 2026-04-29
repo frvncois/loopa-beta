@@ -61,10 +61,10 @@ export const animatedLogoData: ProjectData = {
     updatedAt: 0,
     thumbnail: null,
   },
-  frames: [
+  artboards: [
     {
       id:              'tpl-logo-frame',
-      name:            'Frame 1',
+      name:            'Artboard 1',
       width:           400,
       height:          400,
       backgroundColor: '#0c0c0f',

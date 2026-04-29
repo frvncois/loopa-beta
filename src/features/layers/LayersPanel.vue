@@ -3,19 +3,19 @@ import { computed, ref } from 'vue'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
-import { useFrameActivation } from '@/composables/useFrameActivation'
+import { useArtboardActivation } from '@/composables/useArtboardActivation'
 import { useEditorModals } from '@/composables/useEditorModals'
 import type { GroupElement } from '@/types/element'
-import FrameRow from './FrameRow.vue'
+import ArtboardRow from './ArtboardRow.vue'
 import ElementRow from './ElementRow.vue'
 
 const doc       = useDocumentStore()
 const selection = useSelectionStore()
 const history   = useHistoryStore()
-const { activateFrame } = useFrameActivation()
+const { activateArtboard } = useArtboardActivation()
 const modals    = useEditorModals()
 
-const frames = computed(() => [...doc.frames].sort((a, b) => a.order - b.order))
+const artboards = computed(() => [...doc.artboards].sort((a, b) => a.order - b.order))
 
 // Context menu state
 const ctxMenu = ref<{ x: number; y: number; elementId: string } | null>(null)
@@ -29,8 +29,8 @@ const ctxIsMaskGroup = computed(() => {
 })
 const canUseMask = computed(() => selection.selectedIds.size >= 2)
 
-function topLevelElements(frameId: string) {
-  return doc.topLevelElementsForFrame(frameId)
+function topLevelElements(artboardId: string) {
+  return doc.topLevelElementsForArtboard(artboardId)
 }
 
 function onSelect(id: string, multi: boolean): void {
@@ -80,15 +80,15 @@ function onReleaseMask(): void {
 <template>
   <div class="flex-1 flex flex-col min-h-0" @click="closeCtxMenu">
   <div class="flex-1 overflow-y-auto min-h-0">
-    <!-- One section per frame -->
-    <template v-for="frame in frames" :key="frame.id">
-      <FrameRow
-        :frame-id="frame.id"
-        :is-active="selection.activeFrameId === frame.id"
-        @activate="activateFrame(frame.id)"
+    <!-- One section per artboard -->
+    <template v-for="artboard in artboards" :key="artboard.id">
+      <ArtboardRow
+        :artboard-id="artboard.id"
+        :is-active="selection.activeArtboardId === artboard.id"
+        @activate="activateArtboard(artboard.id)"
       />
       <ElementRow
-        v-for="el in [...topLevelElements(frame.id)].reverse()"
+        v-for="el in [...topLevelElements(artboard.id)].reverse()"
         :key="el.id"
         :element="el"
         :depth="1"
@@ -99,8 +99,8 @@ function onReleaseMask(): void {
       />
     </template>
 
-    <div v-if="frames.length === 0" class="flex-1 flex items-center justify-center">
-      <span class="text-xs text-text-4 select-none">No frames</span>
+    <div v-if="artboards.length === 0" class="flex-1 flex items-center justify-center">
+      <span class="text-xs text-text-4 select-none">No artboards</span>
     </div>
   </div>
 

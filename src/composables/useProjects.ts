@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { RemoteProjectRepo } from '@/core/persistence/RemoteProjectRepo'
+import { PlanLimitError } from '@/core/supabase/queries'
+import { usePlanLimits } from '@/composables/usePlanLimits'
 import { generateSlug } from '@/core/utils/slug'
 import type { CloudProjectMeta } from '@/types/cloud'
 import type { ProjectData } from '@/types/project'
@@ -9,11 +11,11 @@ const repo = new RemoteProjectRepo()
 
 function emptyProjectData(name: string): ProjectData {
   const id      = generateSlug()
-  const frameId = generateSlug()
+  const artboardId = generateSlug()
   return {
     meta: { id, name, createdAt: Date.now(), updatedAt: Date.now(), thumbnail: null },
-    frames: [{
-      id: frameId, name: 'Frame 1',
+    artboards: [{
+      id: artboardId, name: 'Artboard 1',
       width: 800, height: 600, backgroundColor: '#0c0c0f',
       elementIds: [], order: 0,
       fps: 30, totalFrames: 60, loop: true, direction: 'normal',
@@ -26,10 +28,13 @@ function emptyProjectData(name: string): ProjectData {
 
 export function useProjects() {
   const router   = useRouter()
+  const limits   = usePlanLimits()
   const projects = ref<CloudProjectMeta[]>([])
   const trashed  = ref<CloudProjectMeta[]>([])
-  const loading  = ref(false)
-  const error    = ref('')
+  const loading     = ref(false)
+  const creating    = ref(false)
+  const error       = ref('')
+  const createError = ref('')
 
   async function refresh() {
     loading.value = true
@@ -56,8 +61,21 @@ export function useProjects() {
   }
 
   async function create(name = 'Untitled') {
-    const project = await repo.create(name, emptyProjectData(name))
-    await router.push(`/app/${project.meta.slug}`)
+    createError.value = ''
+    creating.value    = true
+    try {
+      const project = await repo.create(name, emptyProjectData(name))
+      await router.push(`/app/${project.meta.slug}`)
+    } catch (e) {
+      console.error('[useProjects] create failed', e)
+      if (e instanceof PlanLimitError) {
+        limits.showUpgradeModal('projects')
+      } else {
+        createError.value = e instanceof Error ? e.message : 'Failed to create project'
+      }
+    } finally {
+      creating.value = false
+    }
   }
 
   async function rename(id: string, name: string) {
@@ -89,7 +107,7 @@ export function useProjects() {
   }
 
   return {
-    projects, trashed, loading, error,
+    projects, trashed, loading, creating, error, createError,
     refresh, refreshTrashed, create, rename, duplicate, trash, restore, hardDelete,
   }
 }

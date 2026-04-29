@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref } from 'vue'
 import type { ExportJob, ExportFormat, ExportOptions, ExportJobStatus, PreflightReport } from '@/types/export'
 import { generateId } from '@/core/utils/id'
@@ -6,12 +6,12 @@ import { generateId } from '@/core/utils/id'
 export const useExportStore = defineStore('export', () => {
   const currentJob = ref<ExportJob | null>(null)
 
-  function startJob(format: ExportFormat, options: ExportOptions, frameId: string): void {
+  function startJob(format: ExportFormat, options: ExportOptions, artboardId: string): void {
     currentJob.value = {
       id: generateId(),
       format,
       options,
-      frameId,
+      artboardId,
       status: 'idle',
       preflight: null,
       progress: 0,
@@ -79,3 +79,5 @@ export const useExportStore = defineStore('export', () => {
     reset,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useExportStore, import.meta.hot))

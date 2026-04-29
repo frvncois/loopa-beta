@@ -4,17 +4,20 @@ import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
+import { useKeyframeSelection } from '@/composables/useKeyframeSelection'
 import { computeElementAt } from '@/core/animation/engine'
 import { getSnapshotProperties } from '@/core/animation/snapshotProperties'
 import { getValueAtPath } from '@/core/utils/valueAtPath'
 import type { KeyframeValue } from '@/types/track'
 import IconButton from '@/ui/IconButton.vue'
+import Button from '@/ui/Button.vue'
 import { IconPlay, IconPause, IconStop, IconKeyframe } from '@/ui/icons'
 
 const timeline  = useTimelineStore()
 const selection = useSelectionStore()
 const doc       = useDocumentStore()
 const history   = useHistoryStore()
+const kfSel     = useKeyframeSelection()
 
 // Editable frame counter
 const frameInput = ref(String(Math.round(timeline.currentFrame)))
@@ -40,6 +43,7 @@ const hasSelection = computed(() => selection.selectedIds.size > 0)
 function addKeyframe(): void {
   if (!hasSelection.value) return
   const frame = Math.round(timeline.currentFrame)
+  const newKfIds: string[] = []
   history.transact('Add keyframe', () => {
     for (const id of selection.selectedIds) {
       const el = doc.elementById(id)
@@ -48,11 +52,13 @@ function addKeyframe(): void {
       for (const prop of getSnapshotProperties(el)) {
         const value = getValueAtPath(animated, prop)
         if (value !== undefined) {
-          doc.upsertKeyframe(id, prop, frame, value as KeyframeValue)
+          const kfId = doc.upsertKeyframe(id, prop, frame, value as KeyframeValue)
+          if (kfId) newKfIds.push(kfId)
         }
       }
     }
   })
+  kfSel.select(newKfIds)
 }
 
 function onGlobalKeyDown(e: KeyboardEvent): void {
@@ -97,17 +103,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeyDown))
     <div class="flex-1" />
 
     <!-- Add Keyframe -->
-    <button
-      class="inline-flex items-center gap-1.5 h-input-sm px-2 rounded-sm border text-[11px] font-medium transition-colors duration-[140ms] select-none
-             border-border bg-bg-3 text-text-2 hover:bg-bg-5 hover:text-text-1 hover:border-border-l
-             disabled:opacity-40 disabled:cursor-not-allowed"
-      :disabled="!hasSelection"
-      title="Add keyframe (K)"
-      @click="addKeyframe"
-    >
+    <Button variant="default" size="sm" :disabled="!hasSelection" title="Add keyframe (K)" @click="addKeyframe">
       Add Keyframe
       <IconKeyframe class="flex-shrink-0" />
-    </button>
+    </Button>
 
     <div class="w-px h-4 bg-border mx-1 flex-shrink-0" />
 

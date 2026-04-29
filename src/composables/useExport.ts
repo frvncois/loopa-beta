@@ -43,7 +43,7 @@ export function useExport() {
   function _computePreflight(format: ExportFormat): PreflightReport {
     if (format === 'lottie' && store.currentJob) {
       const project = doc.serialize()
-      const frame   = doc.frameById(store.currentJob.frameId)
+      const frame   = doc.artboardById(store.currentJob.artboardId)
       if (frame) return preflightLottie({ project, frame })
     }
     return { format, issues: [], canExport: true }
@@ -56,16 +56,16 @@ export function useExport() {
   }
 
   function openExport(): void {
-    const frameId = selection.activeFrameId ?? doc.frames[0]?.id ?? ''
+    const artboardId = selection.activeArtboardId ?? doc.artboards[0]?.id ?? ''
     const format: ExportFormat = 'lottie'
-    store.startJob(format, defaultOptions(format), frameId)
+    store.startJob(format, defaultOptions(format), artboardId)
     _runPreflight(format)
     modals.showExport.value = true
   }
 
   function changeFormat(format: ExportFormat): void {
     if (!store.currentJob) return
-    store.startJob(format, defaultOptions(format), store.currentJob.frameId)
+    store.startJob(format, defaultOptions(format), store.currentJob.artboardId)
     _runPreflight(format)
   }
 
@@ -74,18 +74,18 @@ export function useExport() {
     store.currentJob = { ...store.currentJob, options }
   }
 
-  function changeFrame(frameId: string): void {
+  function changeArtboard(artboardId: string): void {
     if (!store.currentJob) return
     const { format, options } = store.currentJob
-    store.startJob(format, options, frameId)
+    store.startJob(format, options, artboardId)
     _runPreflight(store.currentJob.format)
   }
 
   async function runExport(): Promise<void> {
     if (!store.currentJob) return
     const job = store.currentJob
-    const frame = doc.frameById(job.frameId)
-    if (!frame) { store.setError('Frame not found'); return }
+    const frame = doc.artboardById(job.artboardId)
+    if (!frame) { store.setError('Artboard not found'); return }
 
     _cancelRequested = false
     store.setStatus('exporting')
@@ -97,9 +97,9 @@ export function useExport() {
 
         // Collect image data before passing to pure core function
         const imageData: Record<string, string> = {}
-        const frameIdSet = new Set(frame.elementIds)
+        const artboardIdSet = new Set(frame.elementIds)
         const imageEls = project.elements.filter(
-          (el): el is ImageElement => el.type === 'image' && frameIdSet.has(el.id),
+          (el): el is ImageElement => el.type === 'image' && artboardIdSet.has(el.id),
         )
         for (const img of imageEls) {
           const blob = await _mediaRepo.get(img.imageStorageId)
@@ -137,7 +137,7 @@ export function useExport() {
         const blob = await runRasterExport(
           job.format,
           project,
-          job.frameId,
+          job.artboardId,
           opts,
           imageData,
           (current, total) => store.setProgress(current, total),
@@ -185,7 +185,7 @@ export function useExport() {
 
   return {
     job,
-    openExport, changeFormat, changeOptions, changeFrame,
+    openExport, changeFormat, changeOptions, changeArtboard,
     runExport, cancelExport, downloadResult, closeExport,
   }
 }

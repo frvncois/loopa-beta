@@ -7,7 +7,7 @@ import EmptyDashboard from './EmptyDashboard.vue'
 import Button from '@/ui/Button.vue'
 import UpgradeModal from '@/features/upgrade/UpgradeModal.vue'
 
-const { projects, loading, error, refresh, create, rename, duplicate, trash } = useProjects()
+const { projects, loading, creating, error, createError, refresh, create, rename, duplicate, trash } = useProjects()
 const limits   = usePlanLimits()
 const search   = ref('')
 
@@ -44,13 +44,16 @@ onMounted(refresh)
       />
       <Button
         variant="accent"
-        :disabled="isAtLimit"
+        :disabled="isAtLimit || creating"
         :title="isAtLimit ? 'Upgrade to Pro for unlimited projects' : undefined"
         @click="handleCreate"
       >
-        New project
+        {{ creating ? 'Creating\u2026' : 'New project' }}
       </Button>
     </div>
+
+    <!-- Create error -->
+    <p v-if="createError" class="text-danger text-xs mb-4">{{ createError }}</p>
 
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-24">

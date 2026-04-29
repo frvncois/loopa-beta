@@ -8,6 +8,7 @@ import Row from '@/ui/inspector/Row.vue'
 import Label from '@/ui/inspector/Label.vue'
 import NumberField from '@/ui/NumberField.vue'
 import Toggle from '@/ui/Toggle.vue'
+import Button from '@/ui/Button.vue'
 
 const props = defineProps<{ elementId: string }>()
 
@@ -85,20 +86,8 @@ function removeMotionPath(): void {
       <Toggle :model-value="mp.rotateAlongPath" @update:model-value="setRotateAlongPath" />
     </Row>
     <Row>
-      <button
-        type="button"
-        class="h-input-sm px-2 text-xs text-text-2 border border-border rounded-sm hover:bg-bg-5 hover:text-text-1 transition-colors duration-[140ms]"
-        @click="editPath"
-      >
-        Edit path
-      </button>
-      <button
-        type="button"
-        class="h-input-sm px-2 text-xs text-danger border border-danger/40 rounded-sm hover:bg-danger-soft hover:border-danger transition-colors duration-[140ms] ml-1.5"
-        @click="removeMotionPath"
-      >
-        Remove
-      </button>
+      <Button variant="default" size="sm" @click="editPath">Edit path</Button>
+      <Button variant="danger" size="sm" class="ml-1.5" @click="removeMotionPath">Remove</Button>
     </Row>
   </CollapsibleSection>
 </template>

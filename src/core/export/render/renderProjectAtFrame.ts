@@ -56,15 +56,15 @@ function renderElement(id: string, ctx: RenderCtx): string {
   }
 }
 
-/** Pure function: walk the project at a given frame, return an SVG string + media layer descriptors. */
+/** Pure function: walk the project at a given artboard, return an SVG string + media layer descriptors. */
 export function renderProjectAtFrame(
-  project:  ProjectData,
-  frameId:  string,
-  frameNum: number,
-  options:  RenderOptions = {},
+  project:    ProjectData,
+  artboardId: string,
+  frameNum:   number,
+  options:    RenderOptions = {},
 ): RenderedFrame {
-  const frame = project.frames.find(f => f.id === frameId)
-  if (!frame) return { svg: '', media: [], width: 0, height: 0, backgroundColor: '#000000' }
+  const artboard = project.artboards.find(a => a.id === artboardId)
+  if (!artboard) return { svg: '', media: [], width: 0, height: 0, backgroundColor: '#000000' }
 
   const elementMap = new Map(project.elements.map(e => [e.id, e]))
   const trackMap   = new Map<string, Track[]>()
@@ -76,13 +76,13 @@ export function renderProjectAtFrame(
 
   const media: MediaLayer[] = []
   const ctx: RenderCtx = {
-    fps: frame.fps, frameNum, elementMap, trackMap,
+    fps: artboard.fps, frameNum, elementMap, trackMap,
     imageData: options.imageData ?? {}, media,
   }
 
-  const bodySvg = frame.elementIds.map(id => renderElement(id, ctx)).join('')
-  const bg      = frame.backgroundColor.startsWith('#') ? frame.backgroundColor : `#${frame.backgroundColor}`
-  const svg     = `<svg xmlns="http://www.w3.org/2000/svg" width="${frame.width}" height="${frame.height}"><rect width="${frame.width}" height="${frame.height}" fill="${bg}" />${bodySvg}</svg>`
+  const bodySvg = artboard.elementIds.map(id => renderElement(id, ctx)).join('')
+  const bg      = artboard.backgroundColor.startsWith('#') ? artboard.backgroundColor : `#${artboard.backgroundColor}`
+  const svg     = `<svg xmlns="http://www.w3.org/2000/svg" width="${artboard.width}" height="${artboard.height}"><rect width="${artboard.width}" height="${artboard.height}" fill="${bg}" />${bodySvg}</svg>`
 
-  return { svg, media, width: frame.width, height: frame.height, backgroundColor: bg }
+  return { svg, media, width: artboard.width, height: artboard.height, backgroundColor: bg }
 }

@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref } from 'vue'
 import type { ToolType } from '@/types/tool'
 import { useSelectionStore } from './useSelectionStore'
@@ -25,3 +25,5 @@ export const useToolStore = defineStore('tool', () => {
 
   return { currentTool, toolOptions, setTool, setToolOption }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useToolStore, import.meta.hot))

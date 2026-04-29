@@ -2,16 +2,16 @@
 import { computed } from 'vue'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 
-const props = defineProps<{ frameId: string; isActive?: boolean }>()
+const props = defineProps<{ artboardId: string; isActive?: boolean }>()
 const emit  = defineEmits<{ activate: [] }>()
 
-const doc   = useDocumentStore()
-const frame = computed(() => doc.frameById(props.frameId))
+const doc      = useDocumentStore()
+const artboard = computed(() => doc.artboardById(props.artboardId))
 </script>
 
 <template>
   <div
-    v-if="frame"
+    v-if="artboard"
     class="flex items-center gap-1.5 px-3 h-[30px] border-b border-border flex-shrink-0 cursor-pointer select-none transition-colors duration-[140ms]"
     :class="isActive ? 'bg-accent-soft' : 'bg-bg-2 hover:bg-bg-3'"
     @click="emit('activate')"
@@ -25,7 +25,7 @@ const frame = computed(() => doc.frameById(props.frameId))
     <span
       class="flex-1 min-w-0 truncate text-xs font-semibold transition-colors duration-[140ms]"
       :class="isActive ? 'text-accent' : 'text-text-2'"
-    >{{ frame.name }}</span>
-    <span class="text-[10px] text-text-4 font-mono flex-shrink-0">{{ frame.width }}×{{ frame.height }}</span>
+    >{{ artboard.name }}</span>
+    <span class="text-[10px] text-text-4 font-mono flex-shrink-0">{{ artboard.width }}×{{ artboard.height }}</span>
   </div>
 </template>

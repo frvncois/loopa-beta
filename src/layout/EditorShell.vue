@@ -17,18 +17,18 @@ import { useShortcuts } from '@/composables/useShortcuts'
 import { useAutosave } from '@/composables/useAutosave'
 import { useEditorModals } from '@/composables/useEditorModals'
 import { useDocumentStore } from '@/stores/useDocumentStore'
-import { useFrameActivation } from '@/composables/useFrameActivation'
+import { useArtboardActivation } from '@/composables/useArtboardActivation'
 
 const confirm  = useMotionPathConfirm()
 const shortcuts = useShortcuts()
 const autosave  = useAutosave()
 const modals    = useEditorModals()
 const doc       = useDocumentStore()
-const { activateFrame } = useFrameActivation()
+const { activateArtboard } = useArtboardActivation()
 
-function onAddFrame(): void {
-  const id = doc.addFrame()
-  activateFrame(id)
+function onAddArtboard(): void {
+  const id = doc.addArtboard()
+  activateArtboard(id)
 }
 
 onMounted(() => {
@@ -57,17 +57,12 @@ onBeforeUnmount(() => shortcuts.unregister())
         <div class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden h-full">
           <PanelHeader title="Layers">
             <template #actions>
-              <button
-                type="button"
-                class="flex items-center gap-1 text-xs text-text-3 hover:text-text-1 transition-colors duration-[140ms]"
-                title="Add Frame"
-                @click="onAddFrame"
-              >
+              <Button variant="ghost" size="xs" title="Add Artboard" @click="onAddArtboard">
                 <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                   <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
                 </svg>
-                <span>Add Frame</span>
-              </button>
+                Add Artboard
+              </Button>
             </template>
           </PanelHeader>
           <LayersPanel />

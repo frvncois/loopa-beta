@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref } from 'vue'
 import { generateId } from '@/core/utils/id'
 
@@ -99,6 +99,15 @@ export const useViewportStore = defineStore('viewport', () => {
     isTransforming.value = v
   }
 
+  function reset(): void {
+    zoom.value           = 1
+    panX.value           = 0
+    panY.value           = 0
+    guides.value         = []
+    isPanning.value      = false
+    isTransforming.value = false
+  }
+
   return {
     zoom,
     panX,
@@ -126,5 +135,8 @@ export const useViewportStore = defineStore('viewport', () => {
     removeGuide,
     toggleGuideLock,
     setTransforming,
+    reset,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useViewportStore, import.meta.hot))

@@ -13,18 +13,18 @@ export interface RenderJobOptions {
  * The caller is responsible for calling bitmap.close() after use.
  */
 export async function* runRenderJob(
-  project: ProjectData,
-  frameId: string,
-  options: RenderJobOptions,
+  project:    ProjectData,
+  artboardId: string,
+  options:    RenderJobOptions,
 ): AsyncGenerator<{ index: number; total: number; bitmap: ImageBitmap }> {
-  const frame = project.frames.find(f => f.id === frameId)
-  if (!frame) return
+  const artboard = project.artboards.find(a => a.id === artboardId)
+  if (!artboard) return
 
-  const total     = frame.totalFrames
+  const total     = artboard.totalFrames
   const imageData = options.imageData ?? {}
 
   for (let i = 0; i < total; i++) {
-    const rendered = renderProjectAtFrame(project, frameId, i, { imageData })
+    const rendered = renderProjectAtFrame(project, artboardId, i, { imageData })
     const bitmap   = await composeFrame(rendered, options.scale)
     yield { index: i, total, bitmap }
   }

@@ -17,7 +17,7 @@ const {
   job,
   changeFormat,
   changeOptions,
-  changeFrame,
+  changeArtboard,
   runExport,
   cancelExport,
   downloadResult,
@@ -26,9 +26,9 @@ const {
 
 const doc = useDocumentStore()
 
-const frames = computed(() => [...doc.frames].sort((a, b) => a.order - b.order))
-const frameOptions = computed(() =>
-  frames.value.map((f) => ({ value: f.id, label: f.name || `Frame ${f.order + 1}` })),
+const artboards = computed(() => [...doc.artboards].sort((a, b) => a.order - b.order))
+const artboardOptions = computed(() =>
+  artboards.value.map((a) => ({ value: a.id, label: a.name || `Artboard ${a.order + 1}` })),
 )
 
 const isExporting = computed(() => job.value?.status === 'exporting')
@@ -73,14 +73,14 @@ const canExport   = computed(() => job.value?.preflight?.canExport ?? false)
 
     <!-- Picker + preflight -->
     <div v-else-if="job" class="flex flex-col gap-0">
-      <!-- Frame selector (only when >1 frame) -->
-      <div v-if="frames.length > 1" class="flex items-center justify-between pb-4 border-b border-border mb-4">
-        <span class="text-xs text-text-3">Frame</span>
+      <!-- Artboard selector (only when >1 artboard) -->
+      <div v-if="artboards.length > 1" class="flex items-center justify-between pb-4 border-b border-border mb-4">
+        <span class="text-xs text-text-3">Artboard</span>
         <div class="w-[180px]">
           <Select
-            :model-value="job.frameId"
-            :options="frameOptions"
-            @update:model-value="changeFrame"
+            :model-value="job.artboardId"
+            :options="artboardOptions"
+            @update:model-value="changeArtboard"
           />
         </div>
       </div>

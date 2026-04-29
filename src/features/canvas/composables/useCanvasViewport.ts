@@ -25,7 +25,7 @@ export function useCanvasViewport() {
     }
   }
 
-  function fitActiveFrame(w: number, h: number): void {
+  function fitActiveArtboard(w: number, h: number): void {
     const el = _svgRef.value
     if (!el) return
     viewport.fitToView(w, h, el as unknown as HTMLElement)
@@ -46,5 +46,5 @@ export function useCanvasViewport() {
     viewport.pan(mouseX - worldX * newZoom - viewport.panX, mouseY - worldY * newZoom - viewport.panY)
   }
 
-  return { transformStr, setSvgRef, screenToSvg, onWheelZoom, fitActiveFrame }
+  return { transformStr, setSvgRef, screenToSvg, onWheelZoom, fitActiveArtboard }
 }

@@ -1,9 +1,9 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Element, GroupElement, PathElement, ImageElement, VideoElement } from '@/types/element'
 import { IDBMediaRepo } from '@/core/persistence/IDBMediaRepo'
 import type { Track, PropertyPath } from '@/types/track'
-import type { Frame } from '@/types/frame'
+import type { Artboard } from '@/types/artboard'
 import type { MotionPath } from '@/types/motion-path'
 import type { ProjectData, ProjectMeta } from '@/types/project'
 import type { DocumentLocation, SaveStatus } from '@/types/cloud'
@@ -13,6 +13,10 @@ import { RemoteProjectRepo } from '@/core/persistence/RemoteProjectRepo'
 import { createTrackActions } from './documentTrackActions'
 import { createGroupMaskActions } from './documentMaskActions'
 import { createDuplicateActions } from './documentDuplicateActions'
+import { useTimelineStore } from './useTimelineStore'
+import { useSelectionStore } from './useSelectionStore'
+import { useHistoryStore } from './useHistoryStore'
+import { useViewportStore } from './useViewportStore'
 
 const repo       = new LocalProjectRepo()
 const mediaRepo  = new IDBMediaRepo()
@@ -21,7 +25,7 @@ const cloudRepo  = new RemoteProjectRepo()
 export const useDocumentStore = defineStore('document', () => {
   const projectId   = ref<string | null>(null)
   const meta        = ref<ProjectMeta | null>(null)
-  const frames      = ref<Frame[]>([])
+  const artboards   = ref<Artboard[]>([])
   const elements    = ref<Element[]>([])
   const tracks      = ref<Track[]>([])
   const motionPaths = ref<MotionPath[]>([])
@@ -53,8 +57,8 @@ export const useDocumentStore = defineStore('document', () => {
     return elements.value.filter((e) => set.has(e.id))
   }
 
-  function frameById(id: string): Frame | undefined {
-    return frames.value.find((f) => f.id === id)
+  function artboardById(id: string): Artboard | undefined {
+    return artboards.value.find((a) => a.id === id)
   }
 
   function tracksForElement(elementId: string): Track[] {
@@ -65,20 +69,20 @@ export const useDocumentStore = defineStore('document', () => {
     return tracks.value.find((t) => t.elementId === elementId && t.property === property)
   }
 
-  function elementsForFrame(frameId: string): Element[] {
-    const frame = frameById(frameId)
-    if (!frame) return []
-    const idSet = new Set(frame.elementIds)
+  function elementsForArtboard(artboardId: string): Element[] {
+    const artboard = artboardById(artboardId)
+    if (!artboard) return []
+    const idSet = new Set(artboard.elementIds)
     return elements.value.filter((e) => idSet.has(e.id))
   }
 
-  function topLevelElementsForFrame(frameId: string): Element[] {
+  function topLevelElementsForArtboard(artboardId: string): Element[] {
     const allChildren = new Set(
       elements.value
         .filter((e): e is GroupElement => e.type === 'group')
         .flatMap((e) => e.childIds),
     )
-    return elementsForFrame(frameId).filter(
+    return elementsForArtboard(artboardId).filter(
       (e) => !allChildren.has(e.id) && !(e.type === 'path' && (e as PathElement).isMotionPath),
     )
   }
@@ -93,10 +97,10 @@ export const useDocumentStore = defineStore('document', () => {
     return map
   })
 
-  const elementToFrameMap = computed((): Map<string, string> => {
+  const elementToArtboardMap = computed((): Map<string, string> => {
     const map = new Map<string, string>()
-    for (const frame of frames.value) {
-      for (const elId of frame.elementIds) map.set(elId, frame.id)
+    for (const artboard of artboards.value) {
+      for (const elId of artboard.elementIds) map.set(elId, artboard.id)
     }
     return map
   })
@@ -104,8 +108,8 @@ export const useDocumentStore = defineStore('document', () => {
   // ── Action factories ──────────────────────────────────────────────────────
 
   const trackActions   = createTrackActions(tracks, trackForProperty)
-  const groupMaskActs  = createGroupMaskActions(elements, frames, elementById, frameById)
-  const duplicateActs  = createDuplicateActions(elements, frames, tracks, elementById, frameById)
+  const groupMaskActs  = createGroupMaskActions(elements, artboards, elementById, artboardById)
+  const duplicateActs  = createDuplicateActions(elements, artboards, tracks, elementById, artboardById)
 
   // Wrap factory actions so they also mark the document dirty
   function _dirty<T extends (...args: never[]) => unknown>(fn: T): T {
@@ -117,7 +121,8 @@ export const useDocumentStore = defineStore('document', () => {
   function loadProject(data: ProjectData): void {
     projectId.value   = data.meta.id
     meta.value        = data.meta
-    frames.value      = data.frames
+    // Backward compat: projects saved before the rename stored artboards as 'frames'
+    artboards.value   = data.artboards ?? (data as unknown as { frames: Artboard[] }).frames ?? []
     elements.value    = data.elements
     tracks.value      = data.tracks
     motionPaths.value = data.motionPaths
@@ -125,13 +130,13 @@ export const useDocumentStore = defineStore('document', () => {
 
   function clearProject(): void {
     projectId.value = null; meta.value = null
-    frames.value = []; elements.value = []; tracks.value = []; motionPaths.value = []
+    artboards.value = []; elements.value = []; tracks.value = []; motionPaths.value = []
   }
 
   function serialize(): ProjectData {
     return JSON.parse(JSON.stringify({
       meta: meta.value ?? { id: projectId.value ?? generateId('proj'), name: 'Untitled', createdAt: Date.now(), updatedAt: Date.now(), thumbnail: null },
-      frames: frames.value,
+      artboards: artboards.value,
       elements: elements.value,
       tracks: tracks.value,
       motionPaths: motionPaths.value,
@@ -139,7 +144,15 @@ export const useDocumentStore = defineStore('document', () => {
     })) as ProjectData
   }
 
+  function _resetUIStores(): void {
+    useTimelineStore().reset()
+    useSelectionStore().reset()
+    useHistoryStore().reset()
+    useViewportStore().reset()
+  }
+
   function initLocal(): void {
+    _resetUIStores()
     location.value          = 'local'
     slug.value              = null
     cloudProjectId.value    = null
@@ -149,6 +162,7 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   async function loadFromCloud(projectSlug: string): Promise<void> {
+    _resetUIStores()
     const project = await cloudRepo.loadBySlug(projectSlug)
     if (!project) throw new Error(`Project not found: ${projectSlug}`)
     loadProject(project.data)
@@ -160,53 +174,53 @@ export const useDocumentStore = defineStore('document', () => {
     saveStatus.value        = 'clean'
   }
 
-  // ── Frame actions ─────────────────────────────────────────────────────────
+  // ── Artboard actions ──────────────────────────────────────────────────────
 
-  function addFrame(name?: string, width?: number, height?: number): string {
+  function addArtboard(name?: string, width?: number, height?: number): string {
     markDirty()
-    const id = generateId('frame')
+    const id = generateId('artboard')
     let canvasX = 0
-    for (const f of frames.value) canvasX = Math.max(canvasX, f.canvasX + f.width + 200)
-    frames.value.push({
-      id, name: name ?? `Frame ${frames.value.length + 1}`,
+    for (const a of artboards.value) canvasX = Math.max(canvasX, a.canvasX + a.width + 200)
+    artboards.value.push({
+      id, name: name ?? `Artboard ${artboards.value.length + 1}`,
       width: width ?? 1280, height: height ?? 720,
       backgroundColor: '1a1a2e', elementIds: [],
-      order: frames.value.length, fps: 30, totalFrames: 60,
+      order: artboards.value.length, fps: 30, totalFrames: 60,
       loop: true, direction: 'normal', canvasX, canvasY: 0,
     })
     return id
   }
 
-  function updateFrame(id: string, updates: Partial<Frame>): void {
+  function updateArtboard(id: string, updates: Partial<Artboard>): void {
     markDirty()
-    const frame = frameById(id)
-    if (frame) Object.assign(frame, updates)
+    const artboard = artboardById(id)
+    if (artboard) Object.assign(artboard, updates)
   }
 
-  function deleteFrame(id: string): void {
+  function deleteArtboard(id: string): void {
     markDirty()
-    const frame = frameById(id)
-    if (frame) deleteElements(frame.elementIds.slice())
-    frames.value = frames.value.filter((f) => f.id !== id)
+    const artboard = artboardById(id)
+    if (artboard) deleteElements(artboard.elementIds.slice())
+    artboards.value = artboards.value.filter((a) => a.id !== id)
   }
 
-  function reorderFrame(id: string, newIndex: number): void {
+  function reorderArtboard(id: string, newIndex: number): void {
     markDirty()
-    const idx = frames.value.findIndex((f) => f.id === id)
+    const idx = artboards.value.findIndex((a) => a.id === id)
     if (idx === -1) return
-    const [frame] = frames.value.splice(idx, 1)
-    if (frame === undefined) return
-    frames.value.splice(newIndex, 0, frame)
-    frames.value.forEach((f, i) => { f.order = i })
+    const [artboard] = artboards.value.splice(idx, 1)
+    if (artboard === undefined) return
+    artboards.value.splice(newIndex, 0, artboard)
+    artboards.value.forEach((a, i) => { a.order = i })
   }
 
   // ── Element actions ───────────────────────────────────────────────────────
 
-  function addElement(element: Element, frameId: string): void {
+  function addElement(element: Element, artboardId: string): void {
     markDirty()
     elements.value.push(element)
-    const frame = frameById(frameId)
-    if (frame) frame.elementIds.push(element.id)
+    const artboard = artboardById(artboardId)
+    if (artboard) artboard.elementIds.push(element.id)
   }
 
   function updateElement(id: string, updates: Partial<Element>): void {
@@ -247,8 +261,8 @@ export const useDocumentStore = defineStore('document', () => {
     }
 
     elements.value = elements.value.filter((e) => !toDelete.has(e.id))
-    for (const frame of frames.value) {
-      frame.elementIds = frame.elementIds.filter((id) => !toDelete.has(id))
+    for (const artboard of artboards.value) {
+      artboard.elementIds = artboard.elementIds.filter((id) => !toDelete.has(id))
     }
     for (const el of elements.value) {
       if (el.type === 'group') el.childIds = el.childIds.filter((id) => !toDelete.has(id))
@@ -262,42 +276,42 @@ export const useDocumentStore = defineStore('document', () => {
 
   function bringToFront(id: string): void {
     markDirty()
-    for (const frame of frames.value) {
-      const idx = frame.elementIds.indexOf(id)
-      if (idx !== -1) { frame.elementIds.splice(idx, 1); frame.elementIds.push(id); return }
+    for (const artboard of artboards.value) {
+      const idx = artboard.elementIds.indexOf(id)
+      if (idx !== -1) { artboard.elementIds.splice(idx, 1); artboard.elementIds.push(id); return }
     }
   }
 
   function sendToBack(id: string): void {
     markDirty()
-    for (const frame of frames.value) {
-      const idx = frame.elementIds.indexOf(id)
-      if (idx !== -1) { frame.elementIds.splice(idx, 1); frame.elementIds.unshift(id); return }
+    for (const artboard of artboards.value) {
+      const idx = artboard.elementIds.indexOf(id)
+      if (idx !== -1) { artboard.elementIds.splice(idx, 1); artboard.elementIds.unshift(id); return }
     }
   }
 
   function reorderElement(id: string, newIndex: number): void {
     markDirty()
-    for (const frame of frames.value) {
-      const idx = frame.elementIds.indexOf(id)
+    for (const artboard of artboards.value) {
+      const idx = artboard.elementIds.indexOf(id)
       if (idx !== -1) {
-        frame.elementIds.splice(idx, 1)
-        frame.elementIds.splice(newIndex, 0, id)
+        artboard.elementIds.splice(idx, 1)
+        artboard.elementIds.splice(newIndex, 0, id)
         return
       }
     }
   }
 
-  function moveElementsToFrame(ids: string[], frameId: string): void {
+  function moveElementsToArtboard(ids: string[], artboardId: string): void {
     markDirty()
-    const targetFrame = frameById(frameId)
-    if (!targetFrame) return
+    const targetArtboard = artboardById(artboardId)
+    if (!targetArtboard) return
     for (const id of ids) {
-      for (const frame of frames.value) {
-        const idx = frame.elementIds.indexOf(id)
-        if (idx !== -1) { frame.elementIds.splice(idx, 1); break }
+      for (const artboard of artboards.value) {
+        const idx = artboard.elementIds.indexOf(id)
+        if (idx !== -1) { artboard.elementIds.splice(idx, 1); break }
       }
-      targetFrame.elementIds.push(id)
+      targetArtboard.elementIds.push(id)
     }
   }
 
@@ -347,15 +361,15 @@ export const useDocumentStore = defineStore('document', () => {
   }
 
   return {
-    projectId, meta, frames, elements, tracks, motionPaths,
+    projectId, meta, artboards, elements, tracks, motionPaths,
     location, slug, cloudProjectId, isDirty, saveStatus, lastServerVersion,
-    childToGroupMap, elementToFrameMap,
-    elementById, elementsByIds, frameById, tracksForElement, trackForProperty,
-    elementsForFrame, topLevelElementsForFrame,
+    childToGroupMap, elementToArtboardMap,
+    elementById, elementsByIds, artboardById, tracksForElement, trackForProperty,
+    elementsForArtboard, topLevelElementsForArtboard,
     markDirty,
     loadProject, clearProject, serialize, initLocal, loadFromCloud,
-    addFrame, updateFrame, deleteFrame, reorderFrame,
-    duplicateFrame: _dirty(duplicateActs.duplicateFrame),
+    addArtboard, updateArtboard, deleteArtboard, reorderArtboard,
+    duplicateArtboard: _dirty(duplicateActs.duplicateArtboard),
     addElement, updateElement, deleteElements,
     bringToFront, sendToBack, reorderElement,
     duplicateElements: _dirty(duplicateActs.duplicateElements),
@@ -363,13 +377,16 @@ export const useDocumentStore = defineStore('document', () => {
     ungroupElements:  _dirty(groupMaskActs.ungroupElements),
     applyMask:        _dirty(groupMaskActs.applyMask),
     swapMaskShape:    _dirty(groupMaskActs.swapMaskShape),
-    moveElementsToFrame,
+    moveElementsToArtboard,
     addTrack:              _dirty(trackActions.addTrack),
     upsertKeyframe:        _dirty(trackActions.upsertKeyframe),
     deleteKeyframe:        _dirty(trackActions.deleteKeyframe),
     deleteTracksForElement: _dirty(trackActions.deleteTracksForElement),
     setTrackEnabled:       _dirty(trackActions.setTrackEnabled),
+    setKeyframeEasing:     _dirty(trackActions.setKeyframeEasing),
     addMotionPath, updateMotionPath, deleteMotionPath,
     updateMeta, deleteProject, saveProject, loadProjectById,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useDocumentStore, import.meta.hot))

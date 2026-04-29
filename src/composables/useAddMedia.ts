@@ -45,7 +45,7 @@ export function useAddMedia() {
 
   async function addImageFile(
     file: File,
-    frameId: string,
+    artboardId: string,
     dropX?: number,
     dropY?: number,
   ): Promise<void> {
@@ -59,9 +59,9 @@ export function useAddMedia() {
     const { width: natW, height: natH } = await getImageDimensions(file)
     const { w, h } = scaledDims(natW, natH)
 
-    const frame = doc.frameById(frameId)
-    const x = dropX ?? (frame ? frame.canvasX + (frame.width - w) / 2 : 0)
-    const y = dropY ?? (frame ? frame.canvasY + (frame.height - h) / 2 : 0)
+    const artboard = doc.artboardById(artboardId)
+    const x = dropX ?? (artboard ? artboard.canvasX + (frame.width - w) / 2 : 0)
+    const y = dropY ?? (artboard ? artboard.canvasY + (frame.height - h) / 2 : 0)
 
     const el: ImageElement = {
       ...createDefaultElement('image'),
@@ -74,14 +74,14 @@ export function useAddMedia() {
     }
 
     history.transact('Add Image', () => {
-      doc.addElement(el, frameId)
+      doc.addElement(el, artboardId)
       selection.select(el.id)
     })
   }
 
   async function addVideoFile(
     file: File,
-    frameId: string,
+    artboardId: string,
     dropX?: number,
     dropY?: number,
   ): Promise<void> {
@@ -95,9 +95,9 @@ export function useAddMedia() {
     const { width: natW, height: natH, duration } = await getVideoMeta(file)
     const { w, h } = scaledDims(natW || 640, natH || 360)
 
-    const frame = doc.frameById(frameId)
-    const x = dropX ?? (frame ? frame.canvasX + (frame.width - w) / 2 : 0)
-    const y = dropY ?? (frame ? frame.canvasY + (frame.height - h) / 2 : 0)
+    const artboard = doc.artboardById(artboardId)
+    const x = dropX ?? (artboard ? artboard.canvasX + (frame.width - w) / 2 : 0)
+    const y = dropY ?? (artboard ? artboard.canvasY + (frame.height - h) / 2 : 0)
 
     const el: VideoElement = {
       ...createDefaultElement('video'),
@@ -114,7 +114,7 @@ export function useAddMedia() {
     }
 
     history.transact('Add Video', () => {
-      doc.addElement(el, frameId)
+      doc.addElement(el, artboardId)
       selection.select(el.id)
     })
   }

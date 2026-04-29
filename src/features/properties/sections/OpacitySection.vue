@@ -10,7 +10,7 @@ import Select from '@/ui/Select.vue'
 const props = defineProps<{ elementId: string }>()
 const eid = computed(() => props.elementId)
 
-const { value: opacity } = useAnimatedProperty<number>(eid, ref('opacity'))
+const { value: opacity, hasChangedFromInitial: opChanged, resetToInitial: opReset } = useAnimatedProperty<number>(eid, ref('opacity'))
 const { value: blendMode } = useAnimatedProperty<string>(eid, ref('blendMode'))
 
 const opacityPct = computed({
@@ -33,6 +33,9 @@ const BLEND_OPTIONS = [
     <Row>
       <Label>Opacity</Label>
       <NumberField v-model="opacityPct" :min="0" :max="100" :step="1" unit="%" />
+      <button v-if="opChanged" class="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-accent-soft transition-colors" title="Reset to initial" @click="opReset()">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent block" />
+      </button>
     </Row>
     <Row>
       <Label>Blend</Label>

@@ -1,12 +1,12 @@
-export type FrameNavigationTrigger = 'on-complete' | 'on-click'
+export type ArtboardNavigationTrigger = 'on-complete' | 'on-click'
 
-export interface Frame {
+export interface Artboard {
   id: string
   name: string
   width: number
   height: number
   backgroundColor: string
-  elementIds: string[]            // top-level element IDs in this frame
+  elementIds: string[]            // top-level element IDs in this artboard
   order: number
   fps: number
   totalFrames: number

@@ -10,7 +10,7 @@ const props = defineProps<{
   totalWidth: number
 }>()
 
-const { onPointerDown, onPointerMove, onPointerUp } = useRulerScrub()
+const { onPointerDown, onPointerMove, onPointerUp } = useRulerScrub(() => props.pixelsPerFrame)
 
 // Tick interval: every 5 frames when zoomed out, every 1 frame if zoomed in enough
 const tickStep = computed(() => (props.pixelsPerFrame < 8 ? 10 : 5))
@@ -34,22 +34,22 @@ const ticks = computed(() => {
     <rect
       :x="labelWidth" y="0"
       :width="totalWidth - labelWidth" :height="height"
-      fill="#0e0e18"
+      fill="#111111"
       style="cursor: pointer"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
     />
     <!-- Label area background -->
-    <rect x="0" y="0" :width="labelWidth" :height="height" fill="#0e0e18" />
+    <rect x="0" y="0" :width="labelWidth" :height="height" fill="#111111" />
     <!-- Bottom border -->
-    <line x1="0" :y1="height" :x2="totalWidth" :y2="height" stroke="#1e1e28" stroke-width="1" />
+    <line x1="0" :y1="height" :x2="totalWidth" :y2="height" stroke="#1e1e1e" stroke-width="1" />
     <!-- Ticks -->
     <g v-for="tick in ticks" :key="tick.frame" class="pointer-events-none">
       <line
         :x1="tick.x" :y1="tick.major ? height - 9 : height - 5"
         :x2="tick.x" :y2="height"
-        stroke="#2e2e3a" stroke-width="1"
+        stroke="#2e2e2e" stroke-width="1"
       />
       <text
         v-if="tick.major"

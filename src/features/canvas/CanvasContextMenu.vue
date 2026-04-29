@@ -8,7 +8,7 @@ import type { GroupElement } from '@/types/element'
 import ContextMenu from '@/ui/ContextMenu.vue'
 import type { ContextMenuItem } from '@/ui/ContextMenu.vue'
 
-const props = defineProps<{ show: boolean; x: number; y: number; frameId: string }>()
+const props = defineProps<{ show: boolean; x: number; y: number; artboardId: string }>()
 const emit  = defineEmits<{ close: [] }>()
 
 const doc       = useDocumentStore()
@@ -79,7 +79,7 @@ function doCut(): void {
 function doPaste(): void {
   if (!clipboard.hasPasteData) return
   history.transact('Paste', () => {
-    const { elementIds } = clipboard.paste(props.frameId)
+    const { elementIds } = clipboard.paste(props.artboardId)
     selection.selectMany(elementIds)
   })
 }

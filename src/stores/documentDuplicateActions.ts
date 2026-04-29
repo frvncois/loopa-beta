@@ -1,23 +1,23 @@
 import type { Ref } from 'vue'
 import type { Element } from '@/types/element'
 import type { Track } from '@/types/track'
-import type { Frame } from '@/types/frame'
+import type { Artboard } from '@/types/artboard'
 import { generateId } from '@/core/utils/id'
 
 export function createDuplicateActions(
   elements: Ref<Element[]>,
-  frames: Ref<Frame[]>,
+  artboards: Ref<Artboard[]>,
   tracks: Ref<Track[]>,
   elementById: (id: string) => Element | undefined,
-  frameById: (id: string) => Frame | undefined,
+  artboardById: (id: string) => Artboard | undefined,
 ) {
-  function duplicateFrame(id: string): string {
-    const frame = frameById(id)
-    if (!frame) return ''
-    const newId = generateId('frame')
+  function duplicateArtboard(id: string): string {
+    const artboard = artboardById(id)
+    if (!artboard) return ''
+    const newId = generateId('artboard')
     const elementIdMap = new Map<string, string>()
 
-    for (const elId of frame.elementIds) {
+    for (const elId of artboard.elementIds) {
       const el = elementById(elId)
       if (!el) continue
       const newElId = generateId('el')
@@ -38,13 +38,13 @@ export function createDuplicateActions(
       })
     }
 
-    frames.value.push({
-      ...frame,
+    artboards.value.push({
+      ...artboard,
       id: newId,
-      name: `${frame.name} copy`,
-      order: frames.value.length,
-      elementIds: frame.elementIds.map((eid) => elementIdMap.get(eid) ?? eid),
-      canvasX: frame.canvasX + frame.width + 100,
+      name: `${artboard.name} copy`,
+      order: artboards.value.length,
+      elementIds: artboard.elementIds.map((eid) => elementIdMap.get(eid) ?? eid),
+      canvasX: artboard.canvasX + artboard.width + 100,
     })
     return newId
   }
@@ -66,9 +66,9 @@ export function createDuplicateActions(
       elements.value.push(cloned)
       newIds.push(newId)
 
-      for (const frame of frames.value) {
-        if (frame.elementIds.includes(id)) {
-          frame.elementIds.push(newId)
+      for (const artboard of artboards.value) {
+        if (artboard.elementIds.includes(id)) {
+          artboard.elementIds.push(newId)
           break
         }
       }
@@ -88,5 +88,5 @@ export function createDuplicateActions(
     return newIds
   }
 
-  return { duplicateFrame, duplicateElements }
+  return { duplicateArtboard, duplicateElements }
 }

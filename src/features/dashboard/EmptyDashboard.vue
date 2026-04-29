@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TEMPLATES } from '@/core/templates/index'
 import TemplateTile from './TemplateTile.vue'
+import Button from '@/ui/Button.vue'
 
 defineProps<{ atLimit?: boolean }>()
 defineEmits<{ create: [] }>()
@@ -26,17 +27,12 @@ defineEmits<{ create: [] }>()
       </svg>
       New project
     </span>
-    <button
-      v-else
-      type="button"
-      class="inline-flex items-center gap-1.5 h-input px-3 bg-accent text-white text-xs font-medium rounded-sm hover:bg-accent-h transition-colors duration-[140ms]"
-      @click="$emit('create')"
-    >
+    <Button v-else variant="accent" @click="$emit('create')">
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
         <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       New project
-    </button>
+    </Button>
 
     <!-- Template row -->
     <div class="mt-8 w-full max-w-sm">

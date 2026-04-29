@@ -6,11 +6,11 @@ import { buildGif } from '@/core/export/raster/gif'
 import { buildMp4, buildWebm } from '@/core/export/raster/video'
 
 export interface WorkerInput {
-  format:    'png-sequence' | 'gif' | 'mp4' | 'webm'
-  project:   ProjectData
-  frameId:   string
-  options:   PngSequenceOptions | GifOptions | Mp4Options | WebmOptions
-  imageData: Record<string, string>   // imageStorageId → data URI, pre-resolved on main thread
+  format:      'png-sequence' | 'gif' | 'mp4' | 'webm'
+  project:     ProjectData
+  artboardId:  string
+  options:     PngSequenceOptions | GifOptions | Mp4Options | WebmOptions
+  imageData:   Record<string, string>   // imageStorageId → data URI, pre-resolved on main thread
 }
 
 export type WorkerOutput =
@@ -19,11 +19,11 @@ export type WorkerOutput =
   | { type: 'error';    message: string }
 
 addEventListener('message', async (e: MessageEvent<WorkerInput>) => {
-  const { format, project, frameId, options, imageData } = e.data
+  const { format, project, artboardId, options, imageData } = e.data
 
-  const frame = project.frames.find(f => f.id === frameId)
-  if (!frame) {
-    postMessage({ type: 'error', message: 'Frame not found' } satisfies WorkerOutput)
+  const artboard = project.artboards.find(a => a.id === artboardId)
+  if (!artboard) {
+    postMessage({ type: 'error', message: 'Artboard not found' } satisfies WorkerOutput)
     return
   }
 
@@ -33,19 +33,19 @@ addEventListener('message', async (e: MessageEvent<WorkerInput>) => {
 
   try {
     const scale  = 'scale' in options ? options.scale : 1
-    const width  = Math.round(frame.width  * scale)
-    const height = Math.round(frame.height * scale)
-    const frames = runRenderJob(project, frameId, { imageData, scale })
+    const width  = Math.round(artboard.width  * scale)
+    const height = Math.round(artboard.height * scale)
+    const frames = runRenderJob(project, artboardId, { imageData, scale })
 
     let blob: Blob
     if (format === 'png-sequence') {
       blob = await buildPngSequence(frames, onProgress)
     } else if (format === 'gif') {
-      blob = await buildGif(frames, frame.fps, (options as GifOptions).quality, onProgress)
+      blob = await buildGif(frames, artboard.fps, (options as GifOptions).quality, onProgress)
     } else if (format === 'mp4') {
-      blob = await buildMp4(frames, frame.fps, width, height, (options as Mp4Options).bitrate, onProgress)
+      blob = await buildMp4(frames, artboard.fps, width, height, (options as Mp4Options).bitrate, onProgress)
     } else {
-      blob = await buildWebm(frames, frame.fps, width, height, (options as WebmOptions).bitrate, onProgress)
+      blob = await buildWebm(frames, artboard.fps, width, height, (options as WebmOptions).bitrate, onProgress)
     }
 
     postMessage({ type: 'done', blob } satisfies WorkerOutput)

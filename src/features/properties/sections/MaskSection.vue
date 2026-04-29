@@ -7,6 +7,7 @@ import CollapsibleSection from '@/ui/inspector/CollapsibleSection.vue'
 import Row from '@/ui/inspector/Row.vue'
 import Label from '@/ui/inspector/Label.vue'
 import Select from '@/ui/Select.vue'
+import Button from '@/ui/Button.vue'
 
 const props = defineProps<{ elementId: string }>()
 
@@ -55,13 +56,7 @@ function releaseMask(): void {
       />
     </Row>
     <Row>
-      <button
-        type="button"
-        class="h-input-sm px-2 text-xs text-danger border border-danger/40 rounded-sm hover:bg-danger-soft hover:border-danger transition-colors duration-[140ms]"
-        @click="releaseMask"
-      >
-        Release Mask
-      </button>
+      <Button variant="danger" size="sm" @click="releaseMask">Release Mask</Button>
     </Row>
   </CollapsibleSection>
 </template>

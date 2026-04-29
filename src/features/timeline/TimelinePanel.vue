@@ -17,11 +17,11 @@ const doc       = useDocumentStore()
 const selection = useSelectionStore()
 
 const animatedElementCount = computed(() => {
-  const frameId = selection.activeFrameId
-  if (!frameId) return 0
-  const frame = doc.frameById(frameId)
-  if (!frame) return 0
-  return frame.elementIds.filter((id) => doc.tracksForElement(id).length > 0).length
+  const artboardId = selection.activeArtboardId
+  if (!artboardId) return 0
+  const artboard = doc.artboardById(artboardId)
+  if (!artboard) return 0
+  return artboard.elementIds.filter((id) => doc.tracksForElement(id).length > 0).length
 })
 
 // PPF fills the available width — frames always span the full ruler

@@ -18,7 +18,7 @@ Each phase ends in something runnable. Don't move on until the "done when" crite
 6. [Plan limits](#6-plan-limits)
 7. [UI patterns](#7-ui-patterns)
 8. [Phase S1 — Supabase setup + types + auth](#phase-s1)
-9. [Phase S2 — Magic link login + auth callback + route guards](#phase-s2)
+9. [Phase S2 — Email + password login + auth callback + route guards](#phase-s2)
 10. [Phase S3 — Cloud project repository + remote save](#phase-s3)
 11. [Phase S4 — Dashboard route + project list + thumbnails](#phase-s4)
 12. [Phase S5 — Save flow, promotion, autosave to cloud](#phase-s5)
@@ -35,7 +35,8 @@ Each phase ends in something runnable. Don't move on until the "done when" crite
 ### In scope
 
 - Supabase Cloud Pro tier as the backend (Postgres + Auth + Storage + Edge Functions)
-- Magic link email auth, no password, no OAuth at launch
+- Email + password auth (no OAuth at launch). Email confirmation disabled — users get instant access.
+- **Note for operators**: Email confirmation must be disabled in the Supabase dashboard: Auth → Providers → Email → uncheck "Confirm email". This setting is not in version control.
 - Anonymous editor use (current behaviour preserved); auth required only to save to cloud
 - Cloud projects: store ProjectData in Postgres JSONB, media blobs in Supabase Storage
 - Local→cloud project promotion on first save
@@ -64,7 +65,7 @@ Each phase ends in something runnable. Don't move on until the "done when" crite
 
 ### Definition of "complete"
 
-A user can: visit loopa.app, try the editor anonymously, sign up with magic link, save their work, see a dashboard, manage their projects, hit a plan limit, upgrade to Pro via Stripe, manage their subscription, transfer or delete a project. Everything ships server-side enforced. Nothing relies on browser-side honour-system limits.
+A user can: visit loopa.app, try the editor anonymously, sign up with email + password, save their work, see a dashboard, manage their projects, hit a plan limit, upgrade to Pro via Stripe, manage their subscription, transfer or delete a project. Everything ships server-side enforced. Nothing relies on browser-side honour-system limits.
 
 ---
 
@@ -352,8 +353,9 @@ export interface OwnershipTransfer {
 
 ```
 /                       Landing                          [public]
-/login                  Magic link entry                 [public]
-/auth/callback          Magic link return                [public]
+/login                  Email + password login           [public]
+/auth/reset             Password reset                   [public]
+/auth/callback          Auth callback                    [public]
 /dashboard              Project list                     [auth required]
 /dashboard/trash        Soft-deleted projects            [auth required]
 /account                Settings, billing, danger zone   [auth required]
@@ -365,7 +367,7 @@ export interface OwnershipTransfer {
 
 - **Auth-required routes**: if `useAuthStore().status === 'anonymous'`, redirect to `/login` with `redirect=` query param.
 - **`/login` while authenticated**: redirect to `/dashboard`.
-- **`/auth/callback`**: reads the magic link token from URL hash, calls `supabase.auth.exchangeCodeForSession`, then:
+- **`/auth/callback`**: reads the auth token from the URL, calls `supabase.auth.exchangeCodeForSession`, then:
   1. If localStorage has `loopa.pendingPromotion`, promote that local project to cloud and redirect to `/app/:slug`.
   2. Else if URL has `?redirect=`, redirect there.
   3. Else redirect to `/dashboard`.
@@ -442,7 +444,7 @@ Single-column form layout, each section in an `InspectorSection` (reuse the prim
 
 ### Login page
 
-Centered card. Email input. `[Send magic link]` primary button. After click: replace card with "Check your email" message and "Use a different email" link. No password, no OAuth at launch.
+Centered card. "Welcome to Loopa" heading. Tabbed AuthForm: "Sign in" tab (email + password, "Forgot password?" link) and "Sign up" tab (email + password, "12+ characters" hint). Submit: "Sign in" or "Create account". "Forgot password?" calls requestPasswordReset and swaps form for "Check your email — reset link sent." On success, auth listener redirects. No OAuth at launch.
 
 ### First-visit greeter modal
 
@@ -484,14 +486,13 @@ Do NOT touch: any other file.
 
 - Create the Supabase project. Apply the schema from §3 as `supabase/migrations/0001_init.sql`. Enable RLS. Create the storage buckets.
 - `client.ts` exports a single `supabase` client instance using env vars. Document required env vars in `.env.example`.
-- `useAuthStore`: per §2. `refresh()` reads the session from supabase and populates `user` and `profile`. `signIn(email)` calls `supabase.auth.signInWithOtp({ email })`. `signOut()` clears session. Subscribes to `onAuthStateChange` to keep state in sync.
+- `useAuthStore`: per §2. `refresh()` reads the session from supabase and populates `user` and `profile`. `signIn(email, password)` calls `supabase.auth.signInWithPassword`. `signUp(email, password)` calls `supabase.auth.signUp`. `requestPasswordReset(email)` sends a reset email. `updatePassword(newPassword)` updates the password after reset. `signOut()` clears session. Subscribes to `onAuthStateChange` to keep state in sync.
 - `main.ts` awaits `useAuthStore().refresh()` before `app.mount()`. Use `createPinia()` first, then `await refresh()`, then mount.
 
 ### Done when
 
 - `pnpm dev` starts cleanly with valid env vars.
-- Calling `useAuthStore().signIn('test@example.com')` from the browser console sends a magic link.
-- Clicking the magic link in email logs the user in (visible in `useAuthStore().status`).
+- Calling `useAuthStore().signIn('test@example.com', 'password123')` returns `{ ok: true }` for an existing user (auth state updates visibly in `useAuthStore().status`).
 - No UI changes yet. Editor still works exactly as before.
 - No file outside the in-scope list has been modified.
 
@@ -500,14 +501,16 @@ Do NOT touch: any other file.
 <a name="phase-s2"></a>
 ## Phase S2 — Login route + auth callback + route guards
 
-**Goal**: Working `/login` page, magic link flow end-to-end, auth-protected routes redirect correctly. Still no dashboard or save flow.
+**Goal**: Working `/login` page, email + password auth end-to-end, password reset flow, auth-protected routes redirect correctly. Still no dashboard or save flow.
 
 ### Files in scope
 
 May create:
 - `src/views/LoginView.vue`
 - `src/views/AuthCallbackView.vue`
-- `src/features/auth/MagicLinkForm.vue`
+- `src/features/auth/AuthForm.vue`
+- `src/features/auth/PasswordResetForm.vue`
+- `src/views/PasswordResetView.vue`
 - `src/features/auth/AuthCard.vue`
 
 May modify:
@@ -517,14 +520,19 @@ Do NOT touch: any other file.
 
 ### Tasks
 
-- `LoginView` renders `AuthCard` containing `MagicLinkForm`. Form has email input + submit. On submit, call `useAuthStore().signIn(email)`. On success, swap form for "Check your email" message.
+- `LoginView` renders `AuthCard` containing `AuthForm`. Tabbed sign-in / sign-up. Shows success banner when `?reset=success` is in the query string.
+- `AuthForm`: email + password with mode toggle. Sign-in calls `signIn(email, password)`; sign-up calls `signUp(email, password)`. "Forgot password?" link calls `requestPasswordReset`; on success swaps for "Check your email" state. 12-char minimum on sign-up.
+- `PasswordResetView` wraps `AuthCard` + `PasswordResetForm`. Accessible at `/auth/reset`.
+- `PasswordResetForm`: new password + confirm fields. On submit: `updatePassword(password)`, sign out, navigate to `/login?reset=success`.
 - `AuthCallbackView`: on mount, exchange the code for a session, await `useAuthStore().refresh()`, then redirect per §5. Handle errors (expired token, etc.) with a clear message + "Try again" link to `/login`.
 - Router guard: `beforeEach` checks if route requires auth; if so and user is anonymous, redirect to `/login?redirect=<path>`. If user is authenticated and going to `/login`, redirect to `/dashboard`.
 - The promotion path is stubbed for now (just redirect to `/dashboard`); real promotion lands in S5.
 
 ### Done when
 
-- Visiting `/login`, entering an email, submitting, clicking the magic link in email, lands on `/dashboard` (which 404s for now — that's fine).
+- Visiting `/login`, entering email + password, signing in, lands on `/dashboard` (which 404s for now — that's fine).
+- Visiting `/login`, signing up with email + password (12+ chars), lands on `/dashboard` with no email confirmation step.
+- Clicking "Forgot password?", receiving reset email, clicking the link, landing on `/auth/reset`, setting new password, returning to `/login` with success message.
 - Visiting `/dashboard` while logged out redirects to `/login`.
 - Visiting `/login` while logged in redirects to `/dashboard`.
 - Editor at `/app` continues to work for anonymous users.
@@ -795,7 +803,7 @@ Do NOT touch: any other file.
 ### Tasks
 
 - `TransferOwnershipModal`: input for recipient email, confirmation copy ("This will transfer ownership of '{name}' to {email}. They have 7 days to accept."). Calls `RemoteProjectRepo.transferOwnership` which inserts into `ownership_transfers` and triggers `send-transfer-email`.
-- `send-transfer-email` Edge Function: uses the standard Supabase email channel to send a magic-link-style email containing a `/dashboard?transfer=<id>` URL.
+- `send-transfer-email` Edge Function: uses the standard Supabase email channel to send an email containing a `/dashboard?transfer=<id>` URL.
 - `IncomingTransfersBanner`: shown when `useOwnershipTransfers().pending.length > 0`. Lists each: "User X wants to transfer 'Project Y' to you. [Accept] [Decline]".
 - Accept flow: server-side function moves the project to the new owner, only succeeds if the new owner has a free project slot (free plan) — otherwise returns an error and the modal explains.
 - Expiry: pg_cron daily job sets status to `expired` for transfers past `expires_at`.

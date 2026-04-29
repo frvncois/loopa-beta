@@ -9,6 +9,7 @@ import CollapsibleSection from '@/ui/inspector/CollapsibleSection.vue'
 import Row from '@/ui/inspector/Row.vue'
 import Label from '@/ui/inspector/Label.vue'
 import Select from '@/ui/Select.vue'
+import Button from '@/ui/Button.vue'
 
 const props = defineProps<{ elementId: string }>()
 
@@ -81,13 +82,7 @@ async function onReplaceFile(e: Event): Promise<void> {
       <Select v-model="objectFit" :options="FIT_OPTIONS" />
     </Row>
     <Row>
-      <button
-        type="button"
-        class="h-input-sm px-2 text-xs text-text-2 border border-border rounded-sm hover:bg-bg-5 hover:text-text-1 transition-colors duration-[140ms]"
-        @click="openReplace"
-      >
-        Replace image
-      </button>
+      <Button variant="default" size="sm" @click="openReplace">Replace image</Button>
       <input
         ref="fileInputRef"
         type="file"

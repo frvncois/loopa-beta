@@ -34,6 +34,7 @@ export function useSaveOrchestrator() {
 
   async function saveToCloud(overrideVersion?: number): Promise<void> {
     if (_isSaving) return
+    if (doc.saveStatus === 'conflict' && overrideVersion === undefined) return
     const id = doc.cloudProjectId
     if (!id) return
     _cancelDebounce()
@@ -133,6 +134,7 @@ export function useSaveOrchestrator() {
     _watcherSet = true
     doc.$subscribe(() => {
       if (_isSaving || !doc.isDirty || doc.location !== 'cloud') return
+      if (doc.saveStatus === 'conflict' || doc.saveStatus === 'error') return
       _schedule()
     })
   }

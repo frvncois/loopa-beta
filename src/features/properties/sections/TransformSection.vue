@@ -16,9 +16,9 @@ const eid = computed(() => props.elementId)
 const doc = useDocumentStore()
 const history = useHistoryStore()
 
-const { value: rotation } = useAnimatedProperty<number>(eid, ref('rotation'))
-const { value: scaleX } = useAnimatedProperty<number>(eid, ref('scaleX'))
-const { value: scaleY } = useAnimatedProperty<number>(eid, ref('scaleY'))
+const { value: rotation, hasChangedFromInitial: rotChanged, resetToInitial: rotReset } = useAnimatedProperty<number>(eid, ref('rotation'))
+const { value: scaleX,   hasChangedFromInitial: sxChanged,  resetToInitial: sxReset  } = useAnimatedProperty<number>(eid, ref('scaleX'))
+const { value: scaleY,   hasChangedFromInitial: syChanged,  resetToInitial: syReset  } = useAnimatedProperty<number>(eid, ref('scaleY'))
 
 const el        = computed(() => doc.elementById(eid.value))
 const overrides = useElementOverrides(eid)
@@ -36,20 +36,29 @@ function toggleFlip(axis: 'flipX' | 'flipY'): void {
       <Label>Rotate</Label>
       <IconMotionPath v-if="overrides.rotation" class="flex-shrink-0 w-3 h-3 text-text-3" />
       <NumberField v-model="rotation" :step="1" :precision="1" unit="°" :disabled="overrides.rotation" />
+      <button v-if="rotChanged" class="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-accent-soft transition-colors" title="Reset to initial" @click="rotReset()">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent block" />
+      </button>
     </Row>
     <Row>
       <Label>Scale X</Label>
       <NumberField v-model="scaleX" :step="0.01" :precision="2" :min="0" />
+      <button v-if="sxChanged" class="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-accent-soft transition-colors" title="Reset to initial" @click="sxReset()">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent block" />
+      </button>
     </Row>
     <Row>
       <Label>Scale Y</Label>
       <NumberField v-model="scaleY" :step="0.01" :precision="2" :min="0" />
+      <button v-if="syChanged" class="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-accent-soft transition-colors" title="Reset to initial" @click="syReset()">
+        <span class="w-1.5 h-1.5 rounded-full bg-accent block" />
+      </button>
     </Row>
     <Row>
       <Label>Flip</Label>
       <div class="flex gap-1">
         <IconButton size="sm" variant="ghost" :active="el?.flipX ?? false" title="Flip H" @click="toggleFlip('flipX')"><IconFlipH /></IconButton>
-        <IconButton size="sm" variant="ghost" :active="el?.flipY ?? false" title="Flip V" @click="toggleFlip('flipY')"><IconFlipV /></IconButton>
+        <IconButton size="sm" variant="ghost" :active="el?.flipY ?? false" title="Flip V" @click="toggleFlip('flipV')"><IconFlipV /></IconButton>
       </div>
     </Row>
   </CollapsibleSection>

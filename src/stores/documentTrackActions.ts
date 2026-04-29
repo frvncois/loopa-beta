@@ -17,7 +17,7 @@ export function createTrackActions(
     frame: number,
     value: KeyframeValue,
     easing: EasingType = 'linear',
-  ): void {
+  ): string {
     if (!trackForProperty(elementId, property)) {
       tracks.value.push({
         id: generateId('track'),
@@ -28,19 +28,20 @@ export function createTrackActions(
       })
     }
     const track = trackForProperty(elementId, property)
-    if (!track) return
+    if (!track) return ''
 
     const existingIdx = track.keyframes.findIndex((kf) => kf.frame === frame)
     if (existingIdx !== -1) {
       const kf = track.keyframes[existingIdx]
       if (kf !== undefined) { kf.value = value; kf.easing = easing }
-      return
+      return kf?.id ?? ''
     }
 
     const newKf: Keyframe = { id: generateId('kf'), frame, value, easing }
     const insertIdx = track.keyframes.findIndex((kf) => kf.frame > frame)
     if (insertIdx === -1) track.keyframes.push(newKf)
     else track.keyframes.splice(insertIdx, 0, newKf)
+    return newKf.id
   }
 
   function deleteKeyframe(trackId: string, keyframeId: string): void {
@@ -61,5 +62,12 @@ export function createTrackActions(
     if (track) track.enabled = enabled
   }
 
-  return { addTrack, upsertKeyframe, deleteKeyframe, deleteTracksForElement, setTrackEnabled }
+  function setKeyframeEasing(trackId: string, keyframeId: string, easing: EasingType): void {
+    const track = tracks.value.find((t) => t.id === trackId)
+    if (!track) return
+    const kf = track.keyframes.find((k) => k.id === keyframeId)
+    if (kf) kf.easing = easing
+  }
+
+  return { addTrack, upsertKeyframe, deleteKeyframe, deleteTracksForElement, setTrackEnabled, setKeyframeEasing }
 }

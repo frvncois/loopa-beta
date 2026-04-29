@@ -5,60 +5,59 @@ import { useSelectionStore } from '@/stores/useSelectionStore'
 import { useViewportStore } from '@/stores/useViewportStore'
 import { useCanvasViewport } from './composables/useCanvasViewport'
 import { useCanvasInteractions } from './composables/useCanvasInteractions'
-import CanvasFramesLayer from './layers/CanvasFramesLayer.vue'
+import CanvasArtboardsLayer from './layers/CanvasArtboardsLayer.vue'
 import SelectionLayer from './layers/SelectionLayer.vue'
 import OverlayLayer from './layers/OverlayLayer.vue'
 import CanvasContextMenu from './CanvasContextMenu.vue'
-import CanvasOnboarding from './CanvasOnboarding.vue'
-import { useFrameActivation } from '@/composables/useFrameActivation'
+import { useArtboardActivation } from '@/composables/useArtboardActivation'
 import { useAddMedia } from '@/composables/useAddMedia'
 
 const doc       = useDocumentStore()
 const selection = useSelectionStore()
 const viewport  = useViewportStore()
-const { transformStr, setSvgRef, screenToSvg, fitActiveFrame } = useCanvasViewport()
-const { activateFrame } = useFrameActivation()
+const { transformStr, setSvgRef, screenToSvg, fitActiveArtboard } = useCanvasViewport()
+const { activateArtboard } = useArtboardActivation()
 const { addImageFile, addVideoFile } = useAddMedia()
 
 const svgRef = useTemplateRef<SVGSVGElement>('svg')
 
-// ── Active frame ───────────────────────────────────────────────────────────
+// ── Active artboard ─────────────────────────────────────────────────────────
 onMounted(() => {
   setSvgRef(svgRef.value)
 
-  if (doc.frames.length === 0) {
-    const frameId = doc.addFrame('Frame 1', 1280, 720)
-    activateFrame(frameId)
+  if (doc.artboards.length === 0) {
+    const artboardId = doc.addArtboard('Artboard 1', 1280, 720)
+    activateArtboard(artboardId)
   } else {
-    const targetId = selection.activeFrameId ?? doc.frames[0]?.id
-    if (targetId) activateFrame(targetId)
+    const targetId = selection.activeArtboardId ?? doc.artboards[0]?.id
+    if (targetId) activateArtboard(targetId)
   }
 
-  if (svgRef.value && doc.frames[0]) {
-    fitActiveFrame(doc.frames[0].width, doc.frames[0].height)
+  if (svgRef.value && doc.artboards[0]) {
+    fitActiveArtboard(doc.artboards[0].width, doc.artboards[0].height)
   }
 })
 
 onBeforeUnmount(() => setSvgRef(null))
 
-const activeFrameId = computed(() => selection.activeFrameId ?? '')
+const activeArtboardId = computed(() => selection.activeArtboardId ?? '')
 
 // ── Interactions ───────────────────────────────────────────────────────────
 const { onPointerDown, onPointerMove, onPointerUp, onWheel, onKeyDown: toolKeyDown } =
-  useCanvasInteractions(() => activeFrameId.value)
+  useCanvasInteractions(() => activeArtboardId.value)
 
 // ── Drag-drop media ─────────────────────────────────────────────────────────
 function onDrop(e: DragEvent): void {
   e.preventDefault()
-  const frameId = activeFrameId.value
-  if (!frameId || !e.dataTransfer) return
+  const artboardId = activeArtboardId.value
+  if (!artboardId || !e.dataTransfer) return
   const { x: dropX, y: dropY } = screenToSvg(e.clientX, e.clientY)
 
   for (const file of Array.from(e.dataTransfer.files)) {
     if (file.type.startsWith('image/')) {
-      void addImageFile(file, frameId, dropX, dropY)
+      void addImageFile(file, artboardId, dropX, dropY)
     } else if (file.type.startsWith('video/')) {
-      void addVideoFile(file, frameId, dropX, dropY)
+      void addVideoFile(file, artboardId, dropX, dropY)
     }
   }
 }
@@ -103,19 +102,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown))
       @wheel.prevent="onWheel"
     >
       <g :transform="transformStr">
-        <CanvasFramesLayer />
+        <CanvasArtboardsLayer />
         <SelectionLayer />
         <OverlayLayer />
       </g>
     </svg>
 
-    <CanvasOnboarding />
-
     <CanvasContextMenu
       :show="ctxShow"
       :x="ctxX"
       :y="ctxY"
-      :frame-id="activeFrameId"
+      :artboard-id="activeArtboardId"
       @close="ctxShow = false"
     />
   </div>

@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Frame } from '@/types/frame'
+import type { Artboard } from '@/types/artboard'
 
 export const useTimelineStore = defineStore('timeline', () => {
   const currentFrame = ref(0)
@@ -106,17 +106,31 @@ export const useTimelineStore = defineStore('timeline', () => {
   function setLoop(b: boolean): void { loop.value = b }
   function setDirection(d: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse'): void { direction.value = d }
 
-  function syncFromFrame(frame: Frame): void {
-    fps.value = frame.fps
-    totalFrames.value = frame.totalFrames
-    loop.value = frame.loop
-    direction.value = frame.direction
+  function syncFromArtboard(artboard: Artboard): void {
+    fps.value = artboard.fps
+    totalFrames.value = artboard.totalFrames
+    loop.value = artboard.loop
+    direction.value = artboard.direction
+  }
+
+  function reset(): void {
+    pause()
+    _startTime  = null
+    _startFrame = 0
+    currentFrame.value          = 0
+    totalFrames.value           = 60
+    fps.value                   = 30
+    loop.value                  = true
+    direction.value             = 'normal'
+    playbackCompleteCount.value = 0
   }
 
   return {
     currentFrame, totalFrames, fps, isPlaying, loop, direction,
     playbackCompleteCount, duration, currentTime,
     play, pause, stop, toggle, seek, nextFrame, prevFrame,
-    setFps, setTotalFrames, setLoop, setDirection, syncFromFrame,
+    setFps, setTotalFrames, setLoop, setDirection, syncFromArtboard, reset,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useTimelineStore, import.meta.hot))

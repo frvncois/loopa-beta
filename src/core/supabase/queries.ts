@@ -76,7 +76,7 @@ export async function dbLoadProjectBySlug(slug: string): Promise<CloudProject | 
 }
 
 export async function dbCreateProject(name: string, data: ProjectData): Promise<CloudProject> {
-  const { data: id, error } = await supabase.rpc('create_project', {
+  const { data: row, error } = await supabase.rpc('create_project', {
     name,
     data: data as unknown as Json,
   })
@@ -84,14 +84,9 @@ export async function dbCreateProject(name: string, data: ProjectData): Promise<
     if (error.message.startsWith('plan_limit:')) throw new PlanLimitError(error.message)
     throw new Error(error.message)
   }
-  if (id == null) throw new Error('create_project returned no ID')
-  const { data: row, error: fetchErr } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single()
-  if (fetchErr || !row) throw new Error(fetchErr?.message ?? 'Failed to fetch created project')
-  return { meta: rowToMeta(row), data }
+  if (row == null || typeof row !== 'object' || !('slug' in row))
+    throw new Error('create_project returned unexpected value — apply migration 0003 in Supabase')
+  return { meta: rowToMeta(row as unknown as ProjectRow), data }
 }
 
 export async function dbUpdateProject(

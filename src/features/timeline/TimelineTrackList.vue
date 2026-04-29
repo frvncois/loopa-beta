@@ -4,9 +4,8 @@ import type { Element } from '@/types/element'
 import type { Track } from '@/types/track'
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useSelectionStore } from '@/stores/useSelectionStore'
-import { getPropertyGroup, GROUP_ORDER, type PropertyGroup } from '@/core/animation/propertyGroups'
 import TimelineElementRow from './TimelineElementRow.vue'
-import TimelineGroupRow from './TimelineGroupRow.vue'
+import TimelineEasingRow from './TimelineEasingRow.vue'
 
 const props = defineProps<{
   pixelsPerFrame: number
@@ -18,39 +17,24 @@ const props = defineProps<{
 const doc       = useDocumentStore()
 const selection = useSelectionStore()
 
-// ── Data ────────────────────────────────────────────────────────────────────
-
 interface ElementEntry {
   element: Element
   tracks: Track[]
-  groups: [PropertyGroup, Track[]][]   // sorted by GROUP_ORDER
 }
 
 const elementEntries = computed((): ElementEntry[] => {
-  const frameId = selection.activeFrameId
-  if (!frameId) return []
-  const frame = doc.frameById(frameId)
-  if (!frame) return []
+  const artboardId = selection.activeArtboardId
+  if (!artboardId) return []
+  const artboard = doc.artboardById(artboardId)
+  if (!artboard) return []
 
   const result: ElementEntry[] = []
-  for (const elId of frame.elementIds) {
+  for (const elId of artboard.elementIds) {
     const el = doc.elementById(elId)
     if (!el) continue
-    const elTracks = doc.tracksForElement(elId)
-    if (elTracks.length === 0) continue
-
-    const groupMap = new Map<PropertyGroup, Track[]>()
-    for (const track of elTracks) {
-      const g = getPropertyGroup(track.property)
-      if (!groupMap.has(g)) groupMap.set(g, [])
-      groupMap.get(g)!.push(track)
-    }
-
-    const groups: [PropertyGroup, Track[]][] = [...groupMap.entries()].sort(
-      ([a], [b]) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b),
-    )
-
-    result.push({ element: el, tracks: elTracks, groups })
+    const tracks = doc.tracksForElement(elId)
+    if (tracks.length === 0) continue
+    result.push({ element: el, tracks })
   }
   return result
 })
@@ -66,30 +50,27 @@ function toggleExpand(elementId: string): void {
   expanded.value = next
 }
 
-// ── Flat row list for rendering ──────────────────────────────────────────────
+// ── Flat row list ────────────────────────────────────────────────────────────
 
 type RowItem =
   | { type: 'element'; entry: ElementEntry }
-  | { type: 'group'; elementId: string; groupName: PropertyGroup; tracks: Track[] }
+  | { type: 'easing';  elementId: string; tracks: Track[] }
 
 const rows = computed((): RowItem[] => {
   const result: RowItem[] = []
   for (const entry of elementEntries.value) {
     result.push({ type: 'element', entry })
     if (expanded.value.has(entry.element.id)) {
-      for (const [groupName, tracks] of entry.groups) {
-        result.push({ type: 'group', elementId: entry.element.id, groupName, tracks })
-      }
+      result.push({ type: 'easing', elementId: entry.element.id, tracks: entry.tracks })
     }
   }
   return result
 })
-
 </script>
 
 <template>
   <g>
-    <template v-for="(row, i) in rows" :key="row.type === 'element' ? row.entry.element.id : `${row.elementId}:${row.groupName}`">
+    <template v-for="(row, i) in rows" :key="row.type === 'element' ? row.entry.element.id : `${row.elementId}:easing`">
       <TimelineElementRow
         v-if="row.type === 'element'"
         :element="row.entry.element"
@@ -103,9 +84,8 @@ const rows = computed((): RowItem[] => {
         @toggle-expand="toggleExpand(row.entry.element.id)"
         @select="selection.select(row.entry.element.id)"
       />
-      <TimelineGroupRow
+      <TimelineEasingRow
         v-else
-        :group-name="row.groupName"
         :tracks="row.tracks"
         :element-id="row.elementId"
         :row-index="i"
@@ -113,7 +93,6 @@ const rows = computed((): RowItem[] => {
         :label-width="labelWidth"
         :track-height="trackHeight"
         :ruler-height="rulerHeight"
-        @select="selection.select(row.elementId)"
       />
     </template>
 
@@ -123,7 +102,7 @@ const rows = computed((): RowItem[] => {
       :x="labelWidth + 12"
       :y="rulerHeight + trackHeight / 2 + 4"
       font-size="10"
-      fill="#2e2e3a"
+      fill="#2e2e2e"
       font-family="DM Sans, sans-serif"
     >Press K with an element selected to add a keyframe</text>
   </g>

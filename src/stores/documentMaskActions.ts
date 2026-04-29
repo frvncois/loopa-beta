@@ -1,23 +1,23 @@
 import type { Ref } from 'vue'
 import type { Element, GroupElement } from '@/types/element'
-import type { Frame } from '@/types/frame'
+import type { Artboard } from '@/types/artboard'
 import { generateId } from '@/core/utils/id'
 import { createDefaultElement } from '@/core/elements/factory'
 
 export function createGroupMaskActions(
   elements: Ref<Element[]>,
-  frames: Ref<Frame[]>,
+  artboards: Ref<Artboard[]>,
   elementById: (id: string) => Element | undefined,
-  frameById: (id: string) => Frame | undefined,
+  artboardById: (id: string) => Artboard | undefined,
 ) {
   function groupElements(ids: string[]): string | null {
     if (ids.length < 2) return null
     const firstId = ids[0]!
-    let frameId: string | null = null
-    for (const frame of frames.value) {
-      if (frame.elementIds.includes(firstId)) { frameId = frame.id; break }
+    let artboardId: string | null = null
+    for (const artboard of artboards.value) {
+      if (artboard.elementIds.includes(firstId)) { artboardId = artboard.id; break }
     }
-    if (!frameId) return null
+    if (!artboardId) return null
 
     const xs    = ids.map((id) => elementById(id)?.x ?? 0)
     const ys    = ids.map((id) => elementById(id)?.y ?? 0)
@@ -35,12 +35,12 @@ export function createGroupMaskActions(
     }
     elements.value.push(group)
 
-    const frame = frameById(frameId)
-    if (frame) {
-      const firstIdx = frame.elementIds.indexOf(firstId)
-      frame.elementIds = frame.elementIds.filter((id) => !ids.includes(id))
-      frame.elementIds.splice(
-        firstIdx !== -1 ? Math.min(firstIdx, frame.elementIds.length) : frame.elementIds.length,
+    const artboard = artboardById(artboardId)
+    if (artboard) {
+      const firstIdx = artboard.elementIds.indexOf(firstId)
+      artboard.elementIds = artboard.elementIds.filter((id) => !ids.includes(id))
+      artboard.elementIds.splice(
+        firstIdx !== -1 ? Math.min(firstIdx, artboard.elementIds.length) : artboard.elementIds.length,
         0,
         groupId,
       )
@@ -52,9 +52,9 @@ export function createGroupMaskActions(
     const group = elementById(groupId)
     if (!group || group.type !== 'group') return []
     const childIds = [...group.childIds]
-    for (const frame of frames.value) {
-      const idx = frame.elementIds.indexOf(groupId)
-      if (idx !== -1) { frame.elementIds.splice(idx, 1, ...childIds); break }
+    for (const artboard of artboards.value) {
+      const idx = artboard.elementIds.indexOf(groupId)
+      if (idx !== -1) { artboard.elementIds.splice(idx, 1, ...childIds); break }
     }
     elements.value = elements.value.filter((e) => e.id !== groupId)
     return childIds
@@ -63,17 +63,17 @@ export function createGroupMaskActions(
   function applyMask(ids: string[]): string | null {
     if (ids.length < 2) return null
     const firstId = ids[0]!
-    let frameId: string | null = null
-    for (const frame of frames.value) {
-      if (frame.elementIds.includes(firstId)) { frameId = frame.id; break }
+    let artboardId: string | null = null
+    for (const artboard of artboards.value) {
+      if (artboard.elementIds.includes(firstId)) { artboardId = artboard.id; break }
     }
-    if (!frameId) return null
-    const frame = frameById(frameId)
-    if (!frame || !ids.every((id) => frame.elementIds.includes(id))) return null
+    if (!artboardId) return null
+    const artboard = artboardById(artboardId)
+    if (!artboard || !ids.every((id) => artboard.elementIds.includes(id))) return null
 
-    const sorted     = [...ids].sort((a, b) => frame.elementIds.indexOf(a) - frame.elementIds.indexOf(b))
+    const sorted      = [...ids].sort((a, b) => artboard.elementIds.indexOf(a) - artboard.elementIds.indexOf(b))
     const maskShapeId = sorted[sorted.length - 1]!
-    const childIds   = [maskShapeId, ...sorted.slice(0, -1)]
+    const childIds    = [maskShapeId, ...sorted.slice(0, -1)]
 
     const x1s = childIds.flatMap((id) => { const el = elementById(id); return el ? [el.x, el.x + el.width] : [] })
     const y1s = childIds.flatMap((id) => { const el = elementById(id); return el ? [el.y, el.y + el.height] : [] })
@@ -88,10 +88,10 @@ export function createGroupMaskActions(
       childIds, hasMask: true,
     } as GroupElement)
 
-    const insertAt = frame.elementIds.indexOf(sorted[0]!)
-    frame.elementIds = frame.elementIds.filter((id) => !ids.includes(id))
-    frame.elementIds.splice(
-      insertAt !== -1 ? Math.min(insertAt, frame.elementIds.length) : frame.elementIds.length,
+    const insertAt = artboard.elementIds.indexOf(sorted[0]!)
+    artboard.elementIds = artboard.elementIds.filter((id) => !ids.includes(id))
+    artboard.elementIds.splice(
+      insertAt !== -1 ? Math.min(insertAt, artboard.elementIds.length) : artboard.elementIds.length,
       0, groupId,
     )
     return groupId

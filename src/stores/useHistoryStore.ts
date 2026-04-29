@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ProjectData } from '@/types/project'
 import { useDocumentStore } from './useDocumentStore'
@@ -92,6 +92,10 @@ export const useHistoryStore = defineStore('history', () => {
     currentTransaction.value = null
   }
 
+  function reset(): void {
+    clear()
+  }
+
   return {
     past,
     future,
@@ -106,5 +110,8 @@ export const useHistoryStore = defineStore('history', () => {
     undo,
     redo,
     clear,
+    reset,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useHistoryStore, import.meta.hot))

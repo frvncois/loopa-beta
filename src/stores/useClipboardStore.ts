@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Element } from '@/types/element'
 import type { Track } from '@/types/track'
@@ -35,7 +35,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
     }
   }
 
-  function paste(targetFrameId: string): { elementIds: string[]; trackIds: string[] } {
+  function paste(targetArtboardId: string): { elementIds: string[]; trackIds: string[] } {
     if (!data.value) return { elementIds: [], trackIds: [] }
     const doc = useDocumentStore()
 
@@ -53,7 +53,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
       cloned.id = newId
       cloned.x = el.x + offset
       cloned.y = el.y + offset
-      doc.addElement(cloned, targetFrameId)
+      doc.addElement(cloned, targetArtboardId)
       newElementIds.push(newId)
     }
 
@@ -80,3 +80,5 @@ export const useClipboardStore = defineStore('clipboard', () => {
 
   return { data, hasPasteData, copy, paste, clear }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useClipboardStore, import.meta.hot))

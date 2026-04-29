@@ -1,11 +1,11 @@
-import { defineStore } from 'pinia'
+import { defineStore, acceptHMRUpdate } from 'pinia'
 import { ref } from 'vue'
 
 export const useSelectionStore = defineStore('selection', () => {
   const selectedIds = ref<Set<string>>(new Set())
   const selectedKeyframeIds = ref<Set<string>>(new Set())
   const hoveredId = ref<string | null>(null)
-  const activeFrameId = ref<string | null>(null)
+  const activeArtboardId = ref<string | null>(null)
   const activeGroupId = ref<string | null>(null)
   const editingPathId = ref<string | null>(null)
   const pathEditMode = ref(false)
@@ -53,8 +53,8 @@ export const useSelectionStore = defineStore('selection', () => {
     hoveredId.value = id
   }
 
-  function setActiveFrame(frameId: string): void {
-    activeFrameId.value = frameId
+  function setActiveArtboard(artboardId: string): void {
+    activeArtboardId.value = artboardId
     selectedIds.value = new Set()
   }
 
@@ -76,11 +76,21 @@ export const useSelectionStore = defineStore('selection', () => {
     pathEditMode.value = false
   }
 
+  function reset(): void {
+    selectedIds.value         = new Set()
+    selectedKeyframeIds.value = new Set()
+    hoveredId.value           = null
+    activeArtboardId.value       = null
+    activeGroupId.value       = null
+    editingPathId.value       = null
+    pathEditMode.value        = false
+  }
+
   return {
     selectedIds,
     selectedKeyframeIds,
     hoveredId,
-    activeFrameId,
+    activeArtboardId,
     activeGroupId,
     editingPathId,
     pathEditMode,
@@ -92,10 +102,13 @@ export const useSelectionStore = defineStore('selection', () => {
     selectKeyframe,
     clearKeyframeSelection,
     setHovered,
-    setActiveFrame,
+    setActiveArtboard,
     enterGroup,
     exitGroup,
     enterPathEditMode,
     exitPathEditMode,
+    reset,
   }
 })
+
+if (import.meta.hot) import.meta.hot.accept(acceptHMRUpdate(useSelectionStore, import.meta.hot))

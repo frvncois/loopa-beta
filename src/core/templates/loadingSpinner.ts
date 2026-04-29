@@ -39,10 +39,10 @@ export const loadingSpinnerData: ProjectData = {
     updatedAt: 0,
     thumbnail: null,
   },
-  frames: [
+  artboards: [
     {
       id:              'tpl-sp-frame',
-      name:            'Frame 1',
+      name:            'Artboard 1',
       width:           400,
       height:          400,
       backgroundColor: '#0c0c0f',

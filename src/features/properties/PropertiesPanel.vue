@@ -16,7 +16,7 @@ import MaskSection from './sections/MaskSection.vue'
 import MotionPathSection from './sections/MotionPathSection.vue'
 import ImageSection from './sections/ImageSection.vue'
 import VideoSection from './sections/VideoSection.vue'
-import FrameSettingsSection from './sections/FrameSettingsSection.vue'
+import ArtboardSettingsSection from './sections/ArtboardSettingsSection.vue'
 
 const { elementId, element } = usePrimarySelection()
 const doc = useDocumentStore()
@@ -51,6 +51,6 @@ const hasMotionPath = computed(() => {
     <VideoSection v-if="element.type === 'video'" :element-id="elementId" />
   </div>
   <div v-else class="flex-1 flex flex-col min-h-0 overflow-y-auto">
-    <FrameSettingsSection />
+    <ArtboardSettingsSection />
   </div>
 </template>

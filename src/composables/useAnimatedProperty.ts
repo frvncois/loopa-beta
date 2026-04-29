@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, type Ref, type WritableComputedRef, type Com
 import { useDocumentStore } from '@/stores/useDocumentStore'
 import { useTimelineStore } from '@/stores/useTimelineStore'
 import { useHistoryStore } from '@/stores/useHistoryStore'
+import { useKeyframeSelection } from './useKeyframeSelection'
 import { useAnimatedElement } from './useAnimatedElement'
 import { getValueAtPath, setValueAtPath } from '@/core/utils/valueAtPath'
 import type { KeyframeValue, PropertyPath } from '@/types/track'
@@ -62,10 +63,13 @@ export function useAnimatedProperty<T = unknown>(
   value: WritableComputedRef<T>
   hasTrack: ComputedRef<boolean>
   hasKeyframeAtCurrentFrame: ComputedRef<boolean>
+  hasChangedFromInitial: ComputedRef<boolean>
+  resetToInitial: () => void
 } {
-  const doc = useDocumentStore()
+  const doc     = useDocumentStore()
   const timeline = useTimelineStore()
-  const history = useHistoryStore()
+  const history  = useHistoryStore()
+  const kfSel    = useKeyframeSelection()
   const animated = useAnimatedElement(elementId)
 
   const hasTrack = computed(() =>
@@ -103,7 +107,11 @@ export function useAnimatedProperty<T = unknown>(
       }
 
       if (hasTrack.value) {
-        doc.upsertKeyframe(id, path, Math.round(timeline.currentFrame), newValue as KeyframeValue)
+        // If a keyframe on this track is selected, edit it in place rather than at currentFrame
+        const track = doc.trackForProperty(id, path)
+        const selectedKf = track?.keyframes.find(kf => kfSel.isSelected(kf.id))
+        const targetFrame = selectedKf?.frame ?? Math.round(timeline.currentFrame)
+        doc.upsertKeyframe(id, path, targetFrame, newValue as KeyframeValue)
       } else {
         applyNestedProperty(doc, id, path, newValue)
       }
@@ -115,6 +123,30 @@ export function useAnimatedProperty<T = unknown>(
     },
   }) as WritableComputedRef<T>
 
+  // ── Bullet reset ────────────────────────────────────────────────────────────
+
+  const hasChangedFromInitial = computed((): boolean => {
+    if (!hasTrack.value) return false
+    const track = doc.trackForProperty(elementId.value, property.value)
+    if (!track || track.keyframes.length === 0) return false
+    const firstValue = track.keyframes[0]!.value
+    return JSON.stringify(value.value) !== JSON.stringify(firstValue)
+  })
+
+  function resetToInitial(): void {
+    if (!hasChangedFromInitial.value) return
+    const track = doc.trackForProperty(elementId.value, property.value)
+    if (!track || track.keyframes.length === 0) return
+    const initValue = track.keyframes[0]!.value
+    const id   = elementId.value
+    const path = property.value
+    const selectedKf = track.keyframes.find(kf => kfSel.isSelected(kf.id))
+    const targetFrame = selectedKf?.frame ?? Math.round(timeline.currentFrame)
+    history.transact('Reset to initial', () => {
+      doc.upsertKeyframe(id, path, targetFrame, initValue)
+    })
+  }
+
   onBeforeUnmount(() => {
     const key = `${elementId.value}:${property.value}`
     if (_txKey === key) {
@@ -124,5 +156,5 @@ export function useAnimatedProperty<T = unknown>(
     }
   })
 
-  return { value, hasTrack, hasKeyframeAtCurrentFrame }
+  return { value, hasTrack, hasKeyframeAtCurrentFrame, hasChangedFromInitial, resetToInitial }
 }

@@ -1,6 +1,6 @@
 import type { Element } from './element'
 import type { Track } from './track'
-import type { Frame } from './frame'
+import type { Artboard } from './artboard'
 import type { MotionPath } from './motion-path'
 
 export interface ProjectMeta {
@@ -13,7 +13,7 @@ export interface ProjectMeta {
 
 export interface ProjectData {
   meta: ProjectMeta
-  frames: Frame[]
+  artboards: Artboard[]
   elements: Element[]             // ALL elements, flat
   tracks: Track[]                 // ALL tracks, flat
   motionPaths: MotionPath[]

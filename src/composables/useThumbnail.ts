@@ -11,17 +11,17 @@ const _mediaRepo = new IDBMediaRepo()
 export function useThumbnail() {
   const doc = useDocumentStore()
 
-  async function generateThumbnail(frameId: string): Promise<string | null> {
-    const project = doc.serialize()
-    const frame   = project.frames.find(f => f.id === frameId)
-    if (!frame) return null
+  async function generateThumbnail(artboardId: string): Promise<string | null> {
+    const project  = doc.serialize()
+    const artboard = project.artboards.find(a => a.id === artboardId)
+    if (!artboard) return null
 
     const imageData = await gatherImageData(project, _mediaRepo)
 
-    const rendered = renderProjectAtFrame(project, frameId, 0, { imageData })
+    const rendered = renderProjectAtFrame(project, artboardId, 0, { imageData })
 
     const W      = 240
-    const H      = Math.round(frame.height * (W / frame.width))
+    const H      = Math.round(artboard.height * (W / artboard.width))
     const canvas = document.createElement('canvas')
     canvas.width  = W
     canvas.height = H

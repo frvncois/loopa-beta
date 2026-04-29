@@ -99,55 +99,57 @@
    ------------------------------------------------------------------------ */
 
 
-/* Editor shell uses overflow-hidden on its own root div — no global clip needed */
+@layer base {
+  /* Editor shell uses overflow-hidden on its own root div — no global clip needed */
 
-body {
-  font-family: var(--font-sans);
-  background: var(--color-bg-0);
-  color: var(--color-text-1);
-  font-size: 12px;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg-0);
+    color: var(--color-text-1);
+    font-size: 12px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  input, select, button, textarea {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    background: none;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  ::selection {
+    background: var(--color-accent-glow);
+    color: var(--color-text-1);
+  }
+
+  /* Keyboard-only focus ring */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+  :focus:not(:focus-visible) { outline: none; }
+
+  /* Custom scrollbars (matches v1) */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-l);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-4); }
 }
-
-#app {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-input, select, button, textarea {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-}
-
-a { color: inherit; text-decoration: none; }
-
-::selection {
-  background: var(--color-accent-glow);
-  color: var(--color-text-1);
-}
-
-/* Keyboard-only focus ring */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-:focus:not(:focus-visible) { outline: none; }
-
-/* Custom scrollbars (matches v1) */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-l);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-4); }

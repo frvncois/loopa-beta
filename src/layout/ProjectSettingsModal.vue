@@ -89,13 +89,7 @@ const stats = computed(() => ({
       <div class="pt-1 border-t border-border">
         <p class="text-[10px] font-semibold text-text-4 uppercase tracking-widest mb-2">Danger zone</p>
         <div v-if="!confirming" class="flex">
-          <button
-            type="button"
-            class="h-input-sm px-3 text-xs text-danger border border-danger/40 rounded-sm hover:bg-danger-soft hover:border-danger transition-colors duration-[140ms]"
-            @click="confirming = true"
-          >
-            Delete project
-          </button>
+          <Button variant="danger" size="sm" @click="confirming = true">Delete project</Button>
         </div>
         <div v-else class="flex items-center gap-2">
           <span class="text-xs text-text-2 flex-1">This cannot be undone.</span>
